@@ -84,3 +84,11 @@ ausgewählt werden – danach ist die App unter
 Alternativ lokal testen (ohne Veröffentlichung): `npm run build && npm run
 preview -- --host`, dann die angezeigte Netzwerk-Adresse im selben WLAN vom
 Handy aus öffnen.
+
+## Updates auf dem Handy
+
+Die App zeigt ein Banner ("Neue Version verfügbar") mit einem
+"Aktualisieren"-Button, sobald eine neue Version bereitsteht – kein manuelles
+Neu-Hinzufügen zum Homescreen nötig. Die Buchdaten liegen im Browser-Speicher
+der Web-Adresse, nicht im Homescreen-Icon selbst, und bleiben davon
+unberührt.

@@ -6,6 +6,7 @@ import { Bookshelf } from './components/Bookshelf'
 import { BookForm } from './components/BookForm'
 import { ScreenshotImport } from './components/ScreenshotImport'
 import { Statistics } from './components/Statistics'
+import { UpdatePrompt } from './components/UpdatePrompt'
 
 type View =
   | { name: 'shelf' }
@@ -119,6 +120,8 @@ function App() {
           + Buch
         </button>
       </nav>
+
+      <UpdatePrompt />
     </div>
   )
 }
