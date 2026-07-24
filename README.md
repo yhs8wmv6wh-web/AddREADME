@@ -19,8 +19,9 @@ Ablenkung vom Inhalt.
 - **Tags** – frei vergebbare Tags (z. B. "Buchklub"), über die sich das Regal
   filtern lässt – praktisch, um z. B. alle Bücher des eigenen Buchklubs
   auf einen Blick zu sehen.
-- **Digitales Bücherregal** – Übersicht aller Bücher mit Suche und Filter
-  (Gelesen / Am Lesen / Wunschliste / Tags), ideal zum Durchstöbern für
+- **Digitales Bücherregal** – Übersicht aller Bücher mit Suche, Filter
+  (Gelesen / Am Lesen / Wunschliste / Tags) und Sortierung (zuletzt
+  hinzugefügt, alphabetisch, zuletzt gelesen), ideal zum Durchstöbern für
   Empfehlungen oder Geschenkideen.
 - **Statistik-Seite** – Bücher/Seiten pro Jahr oder Monat, Aufschlüsselung
   nach Sprache (Deutsch/Englisch/Andere), Top-Genres sowie Rekorde
@@ -56,7 +57,10 @@ heraus technisch nicht möglich (CORS-Sperre) – stattdessen nutzt die App die
 öffentliche, kostenlose **Google Books API**, die genau dafür gemacht ist und
 ohne eigenen Server auskommt. Bei mehreren Treffern werden gedruckte
 Ausgaben (Hardcover/Taschenbuch) vor E-Book-Einträgen angezeigt, da nur
-deren Seitenzahl zu einem physischen Buch passt.
+deren Seitenzahl zu einem physischen Buch passt. Die Suche wird außerdem
+anhand der im Formular gewählten Sprache (Deutsch/Englisch) eingeschränkt,
+damit deutsche Titel nicht von englischen Ausgaben überdeckt werden – findet
+sich damit nichts, wird automatisch ohne Spracheinschränkung nachgesucht.
 
 ## Entwicklung
 

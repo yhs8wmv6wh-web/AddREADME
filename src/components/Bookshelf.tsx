@@ -23,10 +23,35 @@ const chipClass = (active: boolean) =>
       : 'border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300'
   }`
 
+type SortOption = 'added' | 'alphabetical' | 'finished'
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+  { value: 'added', label: 'Zuletzt hinzugefügt' },
+  { value: 'alphabetical', label: 'Alphabetisch (A–Z)' },
+  { value: 'finished', label: 'Zuletzt gelesen' },
+]
+
+function sortBooks(books: Book[], sort: SortOption): Book[] {
+  const sorted = [...books]
+  if (sort === 'alphabetical') {
+    sorted.sort((a, b) => a.title.localeCompare(b.title, 'de'))
+  } else if (sort === 'finished') {
+    sorted.sort((a, b) => {
+      if (!a.finishedDate && !b.finishedDate) return b.createdAt - a.createdAt
+      if (!a.finishedDate) return 1
+      if (!b.finishedDate) return -1
+      return b.finishedDate.localeCompare(a.finishedDate)
+    })
+  }
+  // 'added': books already arrive newest-first from the database.
+  return sorted
+}
+
 export function Bookshelf({ books, onSelect }: BookshelfProps) {
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<BookStatus | 'all'>('all')
   const [activeTag, setActiveTag] = useState<string | null>(null)
+  const [sort, setSort] = useState<SortOption>('added')
 
   const allTags = useMemo(() => getAllTags(books), [books])
 
@@ -38,7 +63,7 @@ export function Bookshelf({ books, onSelect }: BookshelfProps) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return books.filter((book) => {
+    const matches = books.filter((book) => {
       const matchesFilter = filter === 'all' || book.status === filter
       const matchesTag = !activeTag || book.tags.includes(activeTag)
       const matchesQuery =
@@ -49,7 +74,8 @@ export function Bookshelf({ books, onSelect }: BookshelfProps) {
         book.tags.some((tag) => tag.toLowerCase().includes(q))
       return matchesFilter && matchesTag && matchesQuery
     })
-  }, [books, query, filter, activeTag])
+    return sortBooks(matches, sort)
+  }, [books, query, filter, activeTag, sort])
 
   return (
     <div className="flex flex-col gap-4">
@@ -82,6 +108,23 @@ export function Bookshelf({ books, onSelect }: BookshelfProps) {
           ))}
         </div>
       )}
+
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-neutral-500 dark:text-neutral-400">
+          {filtered.length} {filtered.length === 1 ? 'Buch' : 'Bücher'}
+        </span>
+        <select
+          value={sort}
+          onChange={(event) => setSort(event.target.value as SortOption)}
+          className="text-sm rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-100"
+        >
+          {SORT_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-neutral-500 dark:text-neutral-400">

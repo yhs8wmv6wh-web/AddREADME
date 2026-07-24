@@ -49,7 +49,7 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
     setLookupStatus('loading')
     setCandidates([])
     try {
-      const results = await searchBookCandidates(title.trim(), author.trim())
+      const results = await searchBookCandidates(title.trim(), author.trim(), language)
       setCandidates(results)
       setLookupStatus('done')
     } catch {
