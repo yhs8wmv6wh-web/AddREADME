@@ -26,15 +26,36 @@ function getDB() {
   return dbPromise
 }
 
+/**
+ * Fills in defaults for fields added to the Book schema after some records
+ * were already saved, so older entries don't crash code that assumes every
+ * field is present (e.g. iterating `tags`).
+ */
+function normalizeBook(book: Book): Book {
+  return {
+    ...book,
+    pages: book.pages ?? null,
+    rating: book.rating ?? null,
+    startedDate: book.startedDate ?? null,
+    finishedDate: book.finishedDate ?? null,
+    genre: book.genre ?? '',
+    language: book.language ?? 'de',
+    tags: book.tags ?? [],
+    notes: book.notes ?? '',
+    coverUrl: book.coverUrl ?? null,
+  }
+}
+
 export async function getAllBooks(): Promise<Book[]> {
   const db = await getDB()
   const books = await db.getAllFromIndex('books', 'by-createdAt')
-  return books.reverse()
+  return books.reverse().map(normalizeBook)
 }
 
 export async function getBook(id: string): Promise<Book | undefined> {
   const db = await getDB()
-  return db.get('books', id)
+  const book = await db.get('books', id)
+  return book ? normalizeBook(book) : undefined
 }
 
 export async function addBook(input: BookInput): Promise<Book> {
