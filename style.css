@@ -1,0 +1,157 @@
+:root {
+  --accent: #4f7cff;
+  --track: #e6e9f2;
+  --text: #1f2430;
+  --muted: #6b7280;
+  --card-bg: #ffffff;
+  --bg: #f4f5f9;
+  --danger: #e05353;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+header {
+  padding: 2rem 1.5rem 1rem;
+  text-align: center;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1.5rem 3rem;
+}
+
+#add-book-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  background: var(--card-bg);
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  margin-bottom: 1.5rem;
+}
+
+#add-book-form input {
+  flex: 1 1 160px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid #d7dae2;
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+#add-book-form button {
+  flex: 0 0 auto;
+  padding: 0.6rem 1.2rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+#add-book-form button:hover {
+  background: #3d68e6;
+}
+
+.hint {
+  text-align: center;
+  color: var(--muted);
+}
+
+#book-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.25rem;
+}
+
+.book-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.book-card h2 {
+  margin: 0;
+  font-size: 1.05rem;
+  text-align: center;
+  word-break: break-word;
+}
+
+.pie-chart {
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pie-chart-inner {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: var(--card-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 1.1rem;
+}
+
+.book-meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.page-editor {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-editor label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.page-editor input {
+  width: 80px;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #d7dae2;
+  border-radius: 6px;
+  text-align: center;
+}
+
+.delete-btn {
+  border: none;
+  background: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.delete-btn:hover {
+  text-decoration: underline;
+}
