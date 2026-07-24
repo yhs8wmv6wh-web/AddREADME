@@ -21,9 +21,15 @@ const NOISE_PATTERNS = [
   /^expires?/i,
   /^due/i,
   /^\d{1,2}[./]\d{1,2}[./]\d{2,4}$/,
-  /^\d+%$/,
+  /^\d{1,2}:\d{2}$/,
+  /^\d+\s*%$/,
+  /^\d+g$/i,
   /^narrated by/i,
   /^format:/i,
+  /^vormerken$/i,
+  /^auszug lesen$/i,
+  /^verlauf$/i,
+  /^<\s*verlauf$/i,
 ]
 
 const PAGE_PATTERN = /(\d{2,4})\s*(pages|seiten)/i
@@ -44,11 +50,40 @@ function stripAuthorPrefix(line: string): string {
   return match ? match[1].trim() : line
 }
 
+// Libby renders the author's name in a small ALL-CAPS line directly above
+// the (mixed-case) title. Require a few letters so short UI chrome (e.g. a
+// leftover "5G"/battery reading) can't be mistaken for a name.
+function looksLikeAllCapsAuthor(line: string): boolean {
+  if (line.length < 4) return false
+  return /[A-ZÀ-ÖØ-Þ]/.test(line) && !/[a-zà-öø-þ]/.test(line)
+}
+
+function toTitleCase(line: string): string {
+  return line
+    .toLowerCase()
+    .split(' ')
+    .map((word) => (word ? word[0].toUpperCase() + word.slice(1) : word))
+    .join(' ')
+}
+
+// Strips trailing OCR junk (a misread share/clock icon often shows up as a
+// stray digit or symbol right after the name) before title-casing.
+function cleanAuthorLine(line: string): string {
+  return line
+    .replace(/\s*\d+\s*$/, '')
+    .replace(/[^\p{L}\s'.-]+$/gu, '')
+    .trim()
+}
+
 /**
  * Heuristically extracts title/author/pages from raw OCR text of a Libby
- * screenshot. Libby's layout puts the title in a larger bold line followed
- * by the author on the next line, surrounded by UI chrome we filter out.
- * Some layouts instead OCR title and author onto one "Title by Author" line.
+ * screenshot. Libby's book detail/history view shows the author in a small
+ * ALL-CAPS line immediately above the (larger, mixed-case) title - that
+ * adjacent pair is looked for first. Some screenshots also carry a
+ * duplicate ALL-CAPS title line (a collapsed sticky header) before that
+ * pair, which is skipped since it isn't itself followed by a mixed-case
+ * line. Falls back to "Title by Author" on one line, then to the older
+ * title-then-author two-line assumption for other layouts.
  */
 export function parseLibbyText(rawText: string): ParsedBookGuess {
   const lines = rawText
@@ -66,6 +101,12 @@ export function parseLibbyText(rawText: string): ParsedBookGuess {
   }
 
   const candidates = lines.filter((line) => !isNoise(line) && !PAGE_PATTERN.test(line))
+
+  for (let i = 0; i < candidates.length - 1; i++) {
+    if (looksLikeAllCapsAuthor(candidates[i]) && !looksLikeAllCapsAuthor(candidates[i + 1])) {
+      return { title: candidates[i + 1], author: toTitleCase(cleanAuthorLine(candidates[i])), pages }
+    }
+  }
 
   const inlineMatch = candidates[0]?.match(INLINE_AUTHOR_PATTERN)
   if (inlineMatch) {
