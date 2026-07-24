@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Book, BookInput, BookLanguage, BookStatus } from '../types'
 import { LANGUAGE_LABEL } from '../types'
 import { currentYearMonth } from '../lib/date'
+import { searchBookCandidates, type BookCandidate } from '../lib/bookLookup'
 import { StarRating } from './StarRating'
 import { TagInput } from './TagInput'
 
@@ -37,6 +38,20 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
   const [tags, setTags] = useState<string[]>(initial?.tags ?? [])
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [showFinishedError, setShowFinishedError] = useState(false)
+  const [lookupStatus, setLookupStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
+  const [candidates, setCandidates] = useState<BookCandidate[]>([])
+
+  async function handleLookup() {
+    setLookupStatus('loading')
+    setCandidates([])
+    try {
+      const results = await searchBookCandidates(title.trim(), author.trim())
+      setCandidates(results)
+      setLookupStatus('done')
+    } catch {
+      setLookupStatus('error')
+    }
+  }
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
@@ -91,9 +106,19 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium mb-1" htmlFor="pages">
-            Seiten
-          </label>
+          <div className="flex items-baseline justify-between mb-1">
+            <label className="block text-sm font-medium" htmlFor="pages">
+              Seiten
+            </label>
+            <button
+              type="button"
+              onClick={handleLookup}
+              disabled={!title.trim() || lookupStatus === 'loading'}
+              className="text-xs text-neutral-500 dark:text-neutral-400 underline underline-offset-2 disabled:opacity-40 disabled:no-underline"
+            >
+              {lookupStatus === 'loading' ? 'Suche …' : 'Automatisch suchen'}
+            </button>
+          </div>
           <input
             id="pages"
             type="number"
@@ -118,6 +143,39 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
           />
         </div>
       </div>
+
+      {lookupStatus === 'error' && (
+        <p className="text-xs text-neutral-500 -mt-3">Suche fehlgeschlagen. Bitte Seiten manuell eintragen.</p>
+      )}
+
+      {lookupStatus === 'done' && (
+        <div className="-mt-3 rounded-md border border-neutral-200 dark:border-neutral-800 divide-y divide-neutral-100 dark:divide-neutral-900 overflow-hidden">
+          {candidates.length === 0 ? (
+            <p className="text-xs text-neutral-500 p-3">Keine gedruckte Ausgabe gefunden. Bitte Seiten manuell eintragen.</p>
+          ) : (
+            candidates.slice(0, 5).map((candidate, index) => (
+              <button
+                key={`${candidate.title}-${candidate.pageCount}-${index}`}
+                type="button"
+                onClick={() => {
+                  setPages(String(candidate.pageCount))
+                  setLookupStatus('idle')
+                }}
+                className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-900 flex items-center justify-between gap-2"
+              >
+                <span className="min-w-0">
+                  <span className="block truncate">{candidate.title}</span>
+                  <span className="block text-xs text-neutral-500 dark:text-neutral-400 truncate">
+                    {[candidate.authors, candidate.publisher].filter(Boolean).join(' · ')}
+                    {candidate.isEbook ? ' · E-Book' : ''}
+                  </span>
+                </span>
+                <span className="shrink-0 text-sm font-medium tabular-nums">{candidate.pageCount} S.</span>
+              </button>
+            ))
+          )}
+        </div>
+      )}
 
       <div>
         <span className="block text-sm font-medium mb-1">Sprache</span>

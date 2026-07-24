@@ -22,6 +22,10 @@ Ablenkung vom Inhalt.
   Empfehlungen oder Geschenkideen.
 - **Statistik-Seite** – Bücher/Seiten pro Jahr oder Monat, Aufschlüsselung
   nach Sprache (Deutsch/Englisch/Andere) und Top-Genres. Nach Jahr filterbar.
+- **Seitenzahl automatisch suchen** – Button neben dem Seiten-Feld fragt die
+  Google Books API ab und schlägt Treffer vor (gedruckte Ausgaben zuerst,
+  E-Books ganz unten markiert) – Titel/Autor:in eintragen, Treffer anklicken,
+  fertig.
 - **Läuft offline** – als PWA installierbar (Homescreen), Buchdaten liegen im
   IndexedDB-Speicher des Browsers. Kein Server, kein Login.
 
@@ -32,6 +36,15 @@ von einem CDN nach – dafür ist beim ersten Scan einmalig eine
 Internetverbindung nötig. Erkannte Felder sind ein **Vorschlag**, der vor
 dem Speichern geprüft und bei Bedarf korrigiert werden sollte, da OCR aus
 Fotos/Screenshots nie 100% zuverlässig ist.
+
+## Seitenzahl-Suche: Hinweis
+
+Ein direkter Zugriff auf Shop-Seiten wie Dussmann.de ist aus dem Browser
+heraus technisch nicht möglich (CORS-Sperre) – stattdessen nutzt die App die
+öffentliche, kostenlose **Google Books API**, die genau dafür gemacht ist und
+ohne eigenen Server auskommt. Bei mehreren Treffern werden gedruckte
+Ausgaben (Hardcover/Taschenbuch) vor E-Book-Einträgen angezeigt, da nur
+deren Seitenzahl zu einem physischen Buch passt.
 
 ## Entwicklung
 
