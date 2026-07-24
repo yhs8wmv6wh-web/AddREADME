@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Book, BookInput } from './types'
-import { addBook, deleteBook, getAllBooks, updateBook } from './db'
+import { addBook, deleteBook, getAllBooks, requestPersistentStorage, updateBook } from './db'
 import { getAllTags } from './lib/stats'
 import { Bookshelf } from './components/Bookshelf'
 import { BookForm } from './components/BookForm'
@@ -29,6 +29,7 @@ function App() {
   const existingTags = useMemo(() => getAllTags(books), [books])
 
   useEffect(() => {
+    requestPersistentStorage()
     getAllBooks().then((loadedBooks) => {
       setBooks(loadedBooks)
       setLoaded(true)

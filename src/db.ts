@@ -64,3 +64,17 @@ export async function deleteBook(id: string): Promise<void> {
   const db = await getDB()
   await db.delete('books', id)
 }
+
+/**
+ * Asks the browser to exempt this origin's storage from automatic eviction
+ * (e.g. Safari's 7-day cap on unused sites). Best-effort: unsupported or
+ * silently denied in some browsers, but harmless to call regardless.
+ */
+export async function requestPersistentStorage(): Promise<boolean> {
+  if (!navigator.storage?.persist) return false
+  try {
+    return await navigator.storage.persist()
+  } catch {
+    return false
+  }
+}
