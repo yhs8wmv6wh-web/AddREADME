@@ -22,10 +22,11 @@ Ablenkung vom Inhalt.
   Empfehlungen oder Geschenkideen.
 - **Statistik-Seite** – Bücher/Seiten pro Jahr oder Monat, Aufschlüsselung
   nach Sprache (Deutsch/Englisch/Andere) und Top-Genres. Nach Jahr filterbar.
-- **Seitenzahl automatisch suchen** – Button neben dem Seiten-Feld fragt die
-  Google Books API ab und schlägt Treffer vor (gedruckte Ausgaben zuerst,
-  E-Books ganz unten markiert) – Titel/Autor:in eintragen, Treffer anklicken,
-  fertig.
+- **Seitenzahl & Cover automatisch suchen** – Button neben dem Seiten-Feld
+  fragt Google Books (mit Open-Library-Fallback) ab und schlägt Treffer inkl.
+  Cover-Vorschau vor (gedruckte Ausgaben zuerst, E-Books ganz unten markiert)
+  – Titel/Autor:in eintragen, Treffer anklicken, fertig. Das Cover erscheint
+  danach auf der Buchkarte im Regal für den direkten visuellen Überblick.
 - **Läuft offline** – als PWA installierbar (Homescreen), Buchdaten liegen im
   IndexedDB-Speicher des Browsers. Kein Server, kein Login.
 

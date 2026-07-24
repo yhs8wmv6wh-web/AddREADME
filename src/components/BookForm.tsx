@@ -37,6 +37,7 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
   const [language, setLanguage] = useState<BookLanguage>(initial?.language ?? 'de')
   const [tags, setTags] = useState<string[]>(initial?.tags ?? [])
   const [notes, setNotes] = useState(initial?.notes ?? '')
+  const [coverUrl, setCoverUrl] = useState<string | null>(initial?.coverUrl ?? null)
   const [showFinishedError, setShowFinishedError] = useState(false)
   const [lookupStatus, setLookupStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [candidates, setCandidates] = useState<BookCandidate[]>([])
@@ -72,6 +73,7 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
       language,
       tags,
       notes: notes.trim(),
+      coverUrl,
     })
   }
 
@@ -116,7 +118,7 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
               disabled={!title.trim() || lookupStatus === 'loading'}
               className="text-xs text-neutral-500 dark:text-neutral-400 underline underline-offset-2 disabled:opacity-40 disabled:no-underline"
             >
-              {lookupStatus === 'loading' ? 'Suche …' : 'Automatisch suchen'}
+              {lookupStatus === 'loading' ? 'Suche …' : 'Seiten & Cover suchen'}
             </button>
           </div>
           <input
@@ -159,11 +161,17 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
                 type="button"
                 onClick={() => {
                   setPages(String(candidate.pageCount))
+                  setCoverUrl(candidate.coverUrl)
                   setLookupStatus('idle')
                 }}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-900 flex items-center justify-between gap-2"
+                className="w-full text-left px-3 py-2 text-sm hover:bg-neutral-50 dark:hover:bg-neutral-900 flex items-center gap-3"
               >
-                <span className="min-w-0">
+                {candidate.coverUrl ? (
+                  <img src={candidate.coverUrl} alt="" className="w-8 h-11 object-cover rounded-sm shrink-0 border border-neutral-200 dark:border-neutral-700" />
+                ) : (
+                  <span className="w-8 h-11 shrink-0 rounded-sm bg-neutral-100 dark:bg-neutral-800" />
+                )}
+                <span className="min-w-0 flex-1">
                   <span className="block truncate">{candidate.title}</span>
                   <span className="block text-xs text-neutral-500 dark:text-neutral-400 truncate">
                     {[candidate.authors, candidate.publisher].filter(Boolean).join(' · ')}
@@ -174,6 +182,19 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
               </button>
             ))
           )}
+        </div>
+      )}
+
+      {coverUrl && lookupStatus !== 'done' && (
+        <div className="-mt-3 flex items-center gap-3">
+          <img src={coverUrl} alt="" className="w-10 h-14 object-cover rounded-sm border border-neutral-200 dark:border-neutral-700" />
+          <button
+            type="button"
+            onClick={() => setCoverUrl(null)}
+            className="text-xs text-neutral-500 dark:text-neutral-400 underline underline-offset-2"
+          >
+            Cover entfernen
+          </button>
         </div>
       )}
 

@@ -4,6 +4,7 @@ export interface BookCandidate {
   publisher: string
   pageCount: number
   isEbook: boolean
+  coverUrl: string | null
 }
 
 interface GoogleBooksItem {
@@ -14,6 +15,10 @@ interface GoogleBooksItem {
     publisher?: string
     pageCount?: number
     printType?: string
+    imageLinks?: {
+      thumbnail?: string
+      smallThumbnail?: string
+    }
   }
   saleInfo?: {
     isEbook?: boolean
@@ -25,6 +30,12 @@ interface OpenLibraryDoc {
   author_name?: string[]
   publisher?: string[]
   number_of_pages_median?: number
+  cover_i?: number
+}
+
+/** Google Books serves cover images over http:// by default, which a https page can't load (mixed content). */
+function toHttps(url: string): string {
+  return url.replace(/^http:\/\//, 'https://')
 }
 
 async function searchGoogleBooks(title: string, author: string): Promise<BookCandidate[]> {
@@ -40,19 +51,23 @@ async function searchGoogleBooks(title: string, author: string): Promise<BookCan
 
   return items
     .filter((item) => item.volumeInfo?.printType === 'BOOK' && (item.volumeInfo?.pageCount ?? 0) > 0)
-    .map((item) => ({
-      title: [item.volumeInfo!.title, item.volumeInfo!.subtitle].filter(Boolean).join(': '),
-      authors: (item.volumeInfo!.authors ?? []).join(', '),
-      publisher: item.volumeInfo!.publisher ?? '',
-      pageCount: item.volumeInfo!.pageCount!,
-      isEbook: item.saleInfo?.isEbook ?? false,
-    }))
+    .map((item) => {
+      const image = item.volumeInfo!.imageLinks?.thumbnail ?? item.volumeInfo!.imageLinks?.smallThumbnail
+      return {
+        title: [item.volumeInfo!.title, item.volumeInfo!.subtitle].filter(Boolean).join(': '),
+        authors: (item.volumeInfo!.authors ?? []).join(', '),
+        publisher: item.volumeInfo!.publisher ?? '',
+        pageCount: item.volumeInfo!.pageCount!,
+        isEbook: item.saleInfo?.isEbook ?? false,
+        coverUrl: image ? toHttps(image) : null,
+      }
+    })
 }
 
 async function searchOpenLibrary(title: string, author: string): Promise<BookCandidate[]> {
   const params = new URLSearchParams({
     title,
-    fields: 'title,author_name,publisher,number_of_pages_median',
+    fields: 'title,author_name,publisher,number_of_pages_median,cover_i',
     limit: '10',
   })
   if (author.trim()) params.set('author', author)
@@ -71,6 +86,7 @@ async function searchOpenLibrary(title: string, author: string): Promise<BookCan
       publisher: (doc.publisher ?? [])[0] ?? '',
       pageCount: Math.round(doc.number_of_pages_median!),
       isEbook: false,
+      coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg` : null,
     }))
 }
 
@@ -85,13 +101,13 @@ function dedupe(candidates: BookCandidate[]): BookCandidate[] {
 }
 
 /**
- * Looks up page counts via public, CORS-enabled book APIs (no backend
- * needed): Google Books first, falling back to Open Library if Google
- * Books errors out or has nothing. Print editions (hardcover/paperback)
- * are sorted ahead of e-book listings, since those page counts are the
- * ones that actually correspond to a physical book. Only throws if both
- * sources fail outright; an empty array means both searched successfully
- * but found nothing.
+ * Looks up page counts and cover images via public, CORS-enabled book APIs
+ * (no backend needed): Google Books first, falling back to Open Library if
+ * Google Books errors out or has nothing. Print editions (hardcover/
+ * paperback) are sorted ahead of e-book listings, since those page counts
+ * are the ones that actually correspond to a physical book. Only throws if
+ * both sources fail outright; an empty array means both searched
+ * successfully but found nothing.
  */
 export async function searchBookCandidates(title: string, author: string): Promise<BookCandidate[]> {
   let candidates: BookCandidate[] = []

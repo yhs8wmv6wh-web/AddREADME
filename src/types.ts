@@ -20,6 +20,7 @@ export interface Book {
   language: BookLanguage
   tags: string[]
   notes: string
+  coverUrl: string | null
   createdAt: number
 }
 

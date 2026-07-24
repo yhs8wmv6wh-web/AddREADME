@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { Book } from '../types'
 import { LANGUAGE_LABEL } from '../types'
 
@@ -13,6 +14,7 @@ interface BookCardProps {
 }
 
 export function BookCard({ book, onClick }: BookCardProps) {
+  const [coverFailed, setCoverFailed] = useState(false)
   const meta = [book.genre, LANGUAGE_LABEL[book.language], book.pages ? `${book.pages} S.` : null]
     .filter(Boolean)
     .join(' · ')
@@ -22,10 +24,19 @@ export function BookCard({ book, onClick }: BookCardProps) {
       onClick={onClick}
       className="flex flex-col text-left rounded-md overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 active:scale-[0.98] transition-transform"
     >
-      <div className="h-28 flex items-center justify-center px-3 text-center bg-stone-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-800 relative">
-        <span className="absolute left-0 top-0 bottom-0 w-1 bg-neutral-900 dark:bg-neutral-100" />
-        <span className="font-serif text-neutral-900 dark:text-neutral-100 text-base leading-snug line-clamp-4">{book.title}</span>
-      </div>
+      {book.coverUrl && !coverFailed ? (
+        <img
+          src={book.coverUrl}
+          alt=""
+          onError={() => setCoverFailed(true)}
+          className="h-28 w-full object-cover border-b border-neutral-200 dark:border-neutral-800"
+        />
+      ) : (
+        <div className="h-28 flex items-center justify-center px-3 text-center bg-stone-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-800 relative">
+          <span className="absolute left-0 top-0 bottom-0 w-1 bg-neutral-900 dark:bg-neutral-100" />
+          <span className="font-serif text-neutral-900 dark:text-neutral-100 text-base leading-snug line-clamp-4">{book.title}</span>
+        </div>
+      )}
       <div className="p-2.5 flex flex-col gap-1">
         <p className="font-serif text-sm truncate">{book.title}</p>
         {book.author && <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate">{book.author}</p>}
