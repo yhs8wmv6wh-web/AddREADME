@@ -13,19 +13,24 @@ import {
 import { StatTile } from './StatTile'
 import { HorizontalBarChart } from './HorizontalBarChart'
 
-const LANGUAGE_COLOR: Record<string, { color: string; darkColor: string }> = {
-  de: { color: '#2a78d6', darkColor: '#3987e5' },
-  en: { color: '#eb6834', darkColor: '#d95926' },
-  other: { color: '#1baf7a', darkColor: '#199e70' },
+const LANGUAGE_WEIGHT: Record<string, number> = {
+  de: 1,
+  en: 0.6,
+  other: 0.35,
 }
-
-const SEQUENTIAL = { color: '#2a78d6', darkColor: '#3987e5' }
 
 type Metric = 'count' | 'pages'
 
 interface StatisticsProps {
   books: Book[]
 }
+
+const chipClass = (active: boolean) =>
+  `whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border ${
+    active
+      ? 'bg-neutral-900 border-neutral-900 text-white dark:bg-neutral-100 dark:border-neutral-100 dark:text-neutral-900'
+      : 'border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300'
+  }`
 
 export function Statistics({ books }: StatisticsProps) {
   const years = useMemo(() => getAvailableYears(books), [books])
@@ -47,34 +52,19 @@ export function Statistics({ books }: StatisticsProps) {
   )
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <div className="flex gap-2 overflow-x-auto pb-1">
-        <button
-          onClick={() => setSelectedYear('all')}
-          className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border ${
-            selectedYear === 'all'
-              ? 'bg-purple-600 border-purple-600 text-white'
-              : 'border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300'
-          }`}
-        >
+        <button onClick={() => setSelectedYear('all')} className={chipClass(selectedYear === 'all')}>
           Alle Jahre
         </button>
         {years.map((year) => (
-          <button
-            key={year}
-            onClick={() => setSelectedYear(year)}
-            className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium border ${
-              selectedYear === year
-                ? 'bg-purple-600 border-purple-600 text-white'
-                : 'border-neutral-300 dark:border-neutral-700 text-neutral-600 dark:text-neutral-300'
-            }`}
-          >
+          <button key={year} onClick={() => setSelectedYear(year)} className={chipClass(selectedYear === year)}>
             {year}
           </button>
         ))}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-6">
         <StatTile value={scopeTotals.count} label={selectedYear === 'all' ? 'Bücher insgesamt' : `Bücher ${selectedYear}`} />
         <StatTile
           value={scopeTotals.pages.toLocaleString('de-DE')}
@@ -83,13 +73,13 @@ export function Statistics({ books }: StatisticsProps) {
       </div>
 
       <section>
-        <h2 className="text-sm font-semibold mb-2 text-neutral-700 dark:text-neutral-300">Sprache</h2>
+        <h2 className="font-serif text-base mb-2 text-neutral-900 dark:text-neutral-100">Sprache</h2>
         <HorizontalBarChart
           items={langBreakdown.map((item) => ({
             key: item.language,
             label: LANGUAGE_LABEL[item.language],
             value: item.count,
-            ...LANGUAGE_COLOR[item.language],
+            weight: LANGUAGE_WEIGHT[item.language],
           }))}
           emptyMessage="Noch keine gelesenen Bücher in diesem Zeitraum."
         />
@@ -97,19 +87,23 @@ export function Statistics({ books }: StatisticsProps) {
 
       <section>
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-sm font-semibold text-neutral-700 dark:text-neutral-300">
+          <h2 className="font-serif text-base text-neutral-900 dark:text-neutral-100">
             {selectedYear === 'all' ? 'Pro Jahr' : 'Pro Monat'}
           </h2>
-          <div className="flex rounded-lg border border-neutral-300 dark:border-neutral-700 overflow-hidden text-xs">
+          <div className="flex rounded-md border border-neutral-300 dark:border-neutral-700 overflow-hidden text-xs">
             <button
               onClick={() => setMetric('count')}
-              className={`px-2.5 py-1 font-medium ${metric === 'count' ? 'bg-purple-600 text-white' : 'text-neutral-600 dark:text-neutral-300'}`}
+              className={`px-2.5 py-1 font-medium ${
+                metric === 'count' ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900' : 'text-neutral-600 dark:text-neutral-300'
+              }`}
             >
               Bücher
             </button>
             <button
               onClick={() => setMetric('pages')}
-              className={`px-2.5 py-1 font-medium ${metric === 'pages' ? 'bg-purple-600 text-white' : 'text-neutral-600 dark:text-neutral-300'}`}
+              className={`px-2.5 py-1 font-medium ${
+                metric === 'pages' ? 'bg-neutral-900 text-white dark:bg-neutral-100 dark:text-neutral-900' : 'text-neutral-600 dark:text-neutral-300'
+              }`}
             >
               Seiten
             </button>
@@ -120,17 +114,16 @@ export function Statistics({ books }: StatisticsProps) {
             key: bucket.key,
             label: bucket.label,
             value: metric === 'count' ? bucket.count : bucket.pages,
-            ...SEQUENTIAL,
           }))}
         />
       </section>
 
       {genres.length > 0 && (
         <section>
-          <h2 className="text-sm font-semibold mb-2 text-neutral-700 dark:text-neutral-300">Top Genres</h2>
+          <h2 className="font-serif text-base mb-2 text-neutral-900 dark:text-neutral-100">Top Genres</h2>
           <ul className="flex flex-col gap-1">
             {genres.map((item) => (
-              <li key={item.genre} className="flex items-center justify-between text-sm py-1 border-b border-neutral-100 dark:border-neutral-900 last:border-0">
+              <li key={item.genre} className="flex items-center justify-between text-sm py-1.5 border-b border-neutral-100 dark:border-neutral-900 last:border-0">
                 <span className="text-neutral-700 dark:text-neutral-300">{item.genre}</span>
                 <span className="font-medium tabular-nums">{item.count}</span>
               </li>

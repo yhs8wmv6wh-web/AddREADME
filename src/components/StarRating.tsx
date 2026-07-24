@@ -12,7 +12,7 @@ export function StarRating({ value, onChange }: StarRatingProps) {
           type="button"
           aria-label={`${star} Sterne`}
           onClick={() => onChange(value === star ? null : star)}
-          className="text-2xl leading-none px-0.5 text-amber-400"
+          className="text-xl leading-none px-0.5 text-neutral-800 dark:text-neutral-200"
         >
           {value !== null && star <= value ? '★' : '☆'}
         </button>

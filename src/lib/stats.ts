@@ -1,4 +1,5 @@
 import type { Book, BookLanguage } from '../types'
+import { monthLabelShort, splitYearMonth } from './date'
 
 export interface Bucket {
   key: string
@@ -15,7 +16,7 @@ export function getAvailableYears(books: Book[]): number[] {
   const years = new Set<number>()
   years.add(new Date().getFullYear())
   for (const book of finishedWithDate(books)) {
-    years.add(new Date(book.finishedDate!).getFullYear())
+    years.add(splitYearMonth(book.finishedDate!).year)
   }
   return Array.from(years).sort((a, b) => b - a)
 }
@@ -23,7 +24,7 @@ export function getAvailableYears(books: Book[]): number[] {
 export function booksInYear(books: Book[], year: number | null): Book[] {
   const finished = finishedWithDate(books)
   if (year === null) return finished
-  return finished.filter((book) => new Date(book.finishedDate!).getFullYear() === year)
+  return finished.filter((book) => splitYearMonth(book.finishedDate!).year === year)
 }
 
 export function totals(books: Book[]) {
@@ -41,26 +42,11 @@ export function languageBreakdown(books: Book[]): { language: BookLanguage; coun
   })
 }
 
-const MONTH_LABELS = [
-  'Jan',
-  'Feb',
-  'Mär',
-  'Apr',
-  'Mai',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Okt',
-  'Nov',
-  'Dez',
-]
-
 export function monthlyBreakdown(books: Book[], year: number): Bucket[] {
-  const inYear = books.filter((book) => new Date(book.finishedDate!).getFullYear() === year)
-  return MONTH_LABELS.map((label, index) => {
-    const inMonth = inYear.filter((book) => new Date(book.finishedDate!).getMonth() === index)
-    return { key: String(index), label, ...totals(inMonth) }
+  const inYear = books.filter((book) => splitYearMonth(book.finishedDate!).year === year)
+  return Array.from({ length: 12 }, (_, index) => {
+    const inMonth = inYear.filter((book) => splitYearMonth(book.finishedDate!).month === index)
+    return { key: String(index), label: monthLabelShort(index), ...totals(inMonth) }
   })
 }
 
@@ -71,7 +57,7 @@ export function yearlyBreakdown(books: Book[]): Bucket[] {
     .slice()
     .sort((a, b) => a - b)
     .map((year) => {
-      const inYear = finished.filter((book) => new Date(book.finishedDate!).getFullYear() === year)
+      const inYear = finished.filter((book) => splitYearMonth(book.finishedDate!).year === year)
       return { key: String(year), label: String(year), ...totals(inYear) }
     })
     .filter((bucket) => bucket.count > 0 || bucket.key === String(new Date().getFullYear()))
@@ -86,4 +72,12 @@ export function genreBreakdown(books: Book[]): { genre: string; count: number }[
   return Array.from(counts.entries())
     .map(([genre, count]) => ({ genre, count }))
     .sort((a, b) => b.count - a.count)
+}
+
+export function getAllTags(books: Book[]): string[] {
+  const tags = new Set<string>()
+  for (const book of books) {
+    for (const tag of book.tags) tags.add(tag)
+  }
+  return Array.from(tags).sort((a, b) => a.localeCompare(b, 'de'))
 }
