@@ -1,5 +1,5 @@
 import type { Book, BookLanguage } from '../types'
-import { monthLabelShort, splitYearMonth } from './date'
+import { daysBetween, formatYearMonth, monthLabelShort, splitYearMonth } from './date'
 
 export interface Bucket {
   key: string
@@ -72,6 +72,30 @@ export function genreBreakdown(books: Book[]): { genre: string; count: number }[
   return Array.from(counts.entries())
     .map(([genre, count]) => ({ genre, count }))
     .sort((a, b) => b.count - a.count)
+}
+
+export function fastestBook(books: Book[]): { book: Book; days: number } | null {
+  let best: { book: Book; days: number } | null = null
+  for (const book of finishedWithDate(books)) {
+    if (!book.startedDate) continue
+    const days = daysBetween(book.startedDate, book.finishedDate!)
+    if (days < 0) continue
+    if (!best || days < best.days) best = { book, days }
+  }
+  return best
+}
+
+export function bestMonthByPages(books: Book[]): { key: string; label: string; pages: number } | null {
+  const totalsByMonth = new Map<string, number>()
+  for (const book of finishedWithDate(books)) {
+    const key = book.finishedDate!.slice(0, 7)
+    totalsByMonth.set(key, (totalsByMonth.get(key) ?? 0) + (book.pages ?? 0))
+  }
+  let best: { key: string; label: string; pages: number } | null = null
+  for (const [key, pages] of totalsByMonth) {
+    if (pages > 0 && (!best || pages > best.pages)) best = { key, label: formatYearMonth(key), pages }
+  }
+  return best
 }
 
 export function getAllTags(books: Book[]): string[] {

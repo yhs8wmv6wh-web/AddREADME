@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Book, BookInput, BookLanguage, BookStatus } from '../types'
 import { LANGUAGE_LABEL } from '../types'
-import { currentYearMonth } from '../lib/date'
+import { combineMonthAndDay, currentYearMonth, extractDay } from '../lib/date'
 import { searchBookCandidates, type BookCandidate } from '../lib/bookLookup'
 import { StarRating } from './StarRating'
 import { TagInput } from './TagInput'
@@ -15,8 +15,9 @@ interface BookFormProps {
   existingTags?: string[]
 }
 
-const inputClass =
-  'w-full rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2.5 text-base focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-100'
+const inputBaseClass =
+  'rounded-md border border-neutral-300 dark:border-neutral-700 bg-white dark:bg-neutral-900 px-3 py-2.5 text-base focus:outline-none focus:ring-1 focus:ring-neutral-900 dark:focus:ring-neutral-100'
+const inputClass = `w-full ${inputBaseClass}`
 
 const segmentedButtonClass = (active: boolean) =>
   `flex-1 rounded-md border px-2 py-2 text-sm font-medium transition-colors ${
@@ -31,8 +32,10 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
   const [pages, setPages] = useState(initial?.pages != null ? String(initial.pages) : '')
   const [status, setStatus] = useState<BookStatus>(initial?.status ?? 'finished')
   const [rating, setRating] = useState<number | null>(initial?.rating ?? null)
-  const [startedDate, setStartedDate] = useState(initial?.startedDate ?? '')
-  const [finishedDate, setFinishedDate] = useState(initial?.finishedDate ?? currentYearMonth())
+  const [startedMonth, setStartedMonth] = useState(initial?.startedDate?.slice(0, 7) ?? '')
+  const [startedDay, setStartedDay] = useState(initial?.startedDate ? (extractDay(initial.startedDate) ?? '') : '')
+  const [finishedMonth, setFinishedMonth] = useState(initial?.finishedDate?.slice(0, 7) ?? currentYearMonth())
+  const [finishedDay, setFinishedDay] = useState(initial?.finishedDate ? (extractDay(initial.finishedDate) ?? '') : '')
   const [genre, setGenre] = useState(initial?.genre ?? '')
   const [language, setLanguage] = useState<BookLanguage>(initial?.language ?? 'de')
   const [tags, setTags] = useState<string[]>(initial?.tags ?? [])
@@ -57,7 +60,7 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (!title.trim()) return
-    if (status === 'finished' && !finishedDate) {
+    if (status === 'finished' && !finishedMonth) {
       setShowFinishedError(true)
       return
     }
@@ -67,8 +70,8 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
       pages: pages.trim() ? Math.max(0, parseInt(pages, 10) || 0) : null,
       status,
       rating,
-      startedDate: status === 'wishlist' ? null : startedDate || null,
-      finishedDate: status === 'finished' ? finishedDate : null,
+      startedDate: status === 'wishlist' || !startedMonth ? null : combineMonthAndDay(startedMonth, Number(startedDay) || null),
+      finishedDate: status === 'finished' ? combineMonthAndDay(finishedMonth, Number(finishedDay) || null) : null,
       genre: genre.trim(),
       language,
       tags,
@@ -227,35 +230,61 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
       </div>
 
       {status !== 'wishlist' && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="flex flex-col gap-4">
           <div>
             <label className="block text-sm font-medium mb-1" htmlFor="startedDate">
-              Begonnen
+              Begonnen <span className="font-normal text-neutral-400">(Monat, Tag optional)</span>
             </label>
-            <input
-              id="startedDate"
-              type="month"
-              value={startedDate ?? ''}
-              onChange={(event) => setStartedDate(event.target.value)}
-              className={inputClass}
-            />
+            <div className="flex gap-1.5">
+              <input
+                id="startedDate"
+                type="month"
+                value={startedMonth}
+                onChange={(event) => setStartedMonth(event.target.value)}
+                className={`${inputBaseClass} flex-1 min-w-0`}
+              />
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={31}
+                value={startedDay}
+                onChange={(event) => setStartedDay(event.target.value)}
+                placeholder="Tag"
+                title="Genauer Tag (optional)"
+                className={`${inputBaseClass} w-20 shrink-0 px-2`}
+              />
+            </div>
           </div>
           {status === 'finished' && (
             <div>
               <label className="block text-sm font-medium mb-1" htmlFor="finishedDate">
-                Beendet *
+                Beendet * <span className="font-normal text-neutral-400">(Monat Pflicht, Tag optional)</span>
               </label>
-              <input
-                id="finishedDate"
-                type="month"
-                required
-                value={finishedDate ?? ''}
-                onChange={(event) => {
-                  setFinishedDate(event.target.value)
-                  setShowFinishedError(false)
-                }}
-                className={inputClass}
-              />
+              <div className="flex gap-1.5">
+                <input
+                  id="finishedDate"
+                  type="month"
+                  required
+                  value={finishedMonth}
+                  onChange={(event) => {
+                    setFinishedMonth(event.target.value)
+                    setShowFinishedError(false)
+                  }}
+                  className={`${inputBaseClass} flex-1 min-w-0`}
+                />
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={31}
+                  value={finishedDay}
+                  onChange={(event) => setFinishedDay(event.target.value)}
+                  placeholder="Tag"
+                  title="Genauer Tag (optional)"
+                  className={`${inputBaseClass} w-20 shrink-0 px-2`}
+                />
+              </div>
               {showFinishedError && <p className="text-xs text-neutral-500 mt-1">Bitte mindestens den Monat angeben.</p>}
             </div>
           )}

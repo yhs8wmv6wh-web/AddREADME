@@ -14,8 +14,8 @@ Ablenkung vom Inhalt.
   der Fotomediathek behalten zu müssen), Titel/Autor:in werden per
   Texterkennung (OCR) automatisch vorausgefüllt und können vor dem Speichern
   korrigiert werden.
-- **Begonnen/Beendet** – optionales Startdatum, verpflichtendes Enddatum
-  (mindestens Monat/Jahr) für als "Gelesen" markierte Bücher.
+- **Begonnen/Beendet** – Monat/Jahr genügt (bei "Beendet" auch Pflicht), der
+  genaue Tag ist ein optionales Extra-Feld, falls bekannt.
 - **Tags** – frei vergebbare Tags (z. B. "Buchklub"), über die sich das Regal
   filtern lässt – praktisch, um z. B. alle Bücher des eigenen Buchklubs
   auf einen Blick zu sehen.
@@ -23,7 +23,8 @@ Ablenkung vom Inhalt.
   (Gelesen / Am Lesen / Wunschliste / Tags), ideal zum Durchstöbern für
   Empfehlungen oder Geschenkideen.
 - **Statistik-Seite** – Bücher/Seiten pro Jahr oder Monat, Aufschlüsselung
-  nach Sprache (Deutsch/Englisch/Andere) und Top-Genres. Nach Jahr filterbar.
+  nach Sprache (Deutsch/Englisch/Andere), Top-Genres sowie Rekorde
+  (schnellstes Buch, seitenstärkster Monat). Nach Jahr filterbar.
 - **Seitenzahl & Cover automatisch suchen** – Button neben dem Seiten-Feld
   fragt Google Books (mit Open-Library-Fallback) ab und schlägt Treffer inkl.
   Cover-Vorschau vor (gedruckte Ausgaben zuerst, E-Books ganz unten markiert)

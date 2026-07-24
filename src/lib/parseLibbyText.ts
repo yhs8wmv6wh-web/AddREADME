@@ -104,7 +104,16 @@ export function parseLibbyText(rawText: string): ParsedBookGuess {
 
   for (let i = 0; i < candidates.length - 1; i++) {
     if (looksLikeAllCapsAuthor(candidates[i]) && !looksLikeAllCapsAuthor(candidates[i + 1])) {
-      return { title: candidates[i + 1], author: toTitleCase(cleanAuthorLine(candidates[i])), pages }
+      // Longer titles sometimes wrap onto a second OCR'd line in the
+      // screenshot; keep absorbing mixed-case lines until we hit the next
+      // ALL-CAPS line (a blurb/quote baked into the cover image) or run out.
+      const titleParts = [candidates[i + 1]]
+      let j = i + 2
+      while (j < candidates.length && titleParts.length < 3 && !looksLikeAllCapsAuthor(candidates[j])) {
+        titleParts.push(candidates[j])
+        j++
+      }
+      return { title: titleParts.join(' '), author: toTitleCase(cleanAuthorLine(candidates[i])), pages }
     }
   }
 

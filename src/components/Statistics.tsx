@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react'
 import type { Book } from '../types'
 import { LANGUAGE_LABEL } from '../types'
 import {
+  bestMonthByPages,
   booksInYear,
+  fastestBook,
   genreBreakdown,
   getAvailableYears,
   languageBreakdown,
@@ -45,6 +47,8 @@ export function Statistics({ books }: StatisticsProps) {
   const scopeTotals = useMemo(() => totals(scopeBooks), [scopeBooks])
   const langBreakdown = useMemo(() => languageBreakdown(scopeBooks), [scopeBooks])
   const genres = useMemo(() => genreBreakdown(scopeBooks).slice(0, 8), [scopeBooks])
+  const fastest = useMemo(() => fastestBook(scopeBooks), [scopeBooks])
+  const bestMonth = useMemo(() => bestMonthByPages(scopeBooks), [scopeBooks])
 
   const timeBuckets = useMemo(
     () => (selectedYear === 'all' ? yearlyBreakdown(books) : monthlyBreakdown(books, selectedYear)),
@@ -128,6 +132,32 @@ export function Statistics({ books }: StatisticsProps) {
                 <span className="font-medium tabular-nums">{item.count}</span>
               </li>
             ))}
+          </ul>
+        </section>
+      )}
+
+      {(fastest || bestMonth) && (
+        <section>
+          <h2 className="font-serif text-base mb-2 text-neutral-900 dark:text-neutral-100">Rekorde</h2>
+          <ul className="flex flex-col gap-1">
+            {fastest && (
+              <li className="flex items-center justify-between gap-3 text-sm py-1.5 border-b border-neutral-100 dark:border-neutral-900 last:border-0">
+                <span className="text-neutral-700 dark:text-neutral-300 min-w-0">
+                  Schnellstes Buch <span className="block truncate text-neutral-900 dark:text-neutral-100 font-medium">{fastest.book.title}</span>
+                </span>
+                <span className="font-medium tabular-nums shrink-0">
+                  {fastest.days < 1 ? '< 1 Tag' : `${fastest.days} ${fastest.days === 1 ? 'Tag' : 'Tage'}`}
+                </span>
+              </li>
+            )}
+            {bestMonth && (
+              <li className="flex items-center justify-between gap-3 text-sm py-1.5 border-b border-neutral-100 dark:border-neutral-900 last:border-0">
+                <span className="text-neutral-700 dark:text-neutral-300">Seitenstärkster Monat</span>
+                <span className="font-medium tabular-nums shrink-0">
+                  {bestMonth.label} · {bestMonth.pages.toLocaleString('de-DE')} S.
+                </span>
+              </li>
+            )}
           </ul>
         </section>
       )}
