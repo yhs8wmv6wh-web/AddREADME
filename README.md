@@ -9,9 +9,11 @@ Ablenkung vom Inhalt.
 
 - **Bücher erfassen** – manuell (Titel, Autor:in, Seiten, Sprache, Genre,
   Status, Bewertung, Notizen, Tags) oder per **Screenshot-Import**: Screenshot
-  aus dem Libby-Verlauf hochladen, Titel/Autor:in werden per Texterkennung
-  (OCR) automatisch vorausgefüllt und können vor dem Speichern korrigiert
-  werden.
+  aus dem Libby-Verlauf hochladen (oder direkt **aus der Zwischenablage
+  einfügen** – Screenshot machen, kopieren, in der App einfügen, ohne ihn in
+  der Fotomediathek behalten zu müssen), Titel/Autor:in werden per
+  Texterkennung (OCR) automatisch vorausgefüllt und können vor dem Speichern
+  korrigiert werden.
 - **Begonnen/Beendet** – optionales Startdatum, verpflichtendes Enddatum
   (mindestens Monat/Jahr) für als "Gelesen" markierte Bücher.
 - **Tags** – frei vergebbare Tags (z. B. "Buchklub"), über die sich das Regal
@@ -29,6 +31,14 @@ Ablenkung vom Inhalt.
   danach auf der Buchkarte im Regal für den direkten visuellen Überblick.
 - **Läuft offline** – als PWA installierbar (Homescreen), Buchdaten liegen im
   IndexedDB-Speicher des Browsers. Kein Server, kein Login.
+
+## Screenshot ohne Fotomediathek
+
+1. Screenshot wie gewohnt machen (Seitentaste + Lauter, o. Ä.).
+2. Auf die Vorschau unten links tippen, dann "..." → "Kopieren".
+3. Direkt danach den Papierkorb antippen, um den Screenshot wieder zu löschen
+   – er bleibt trotzdem in der Zwischenablage.
+4. In der App: "Aus Libby-Screenshot" → "Aus Zwischenablage einfügen".
 
 ## OCR-Import: Hinweis
 
