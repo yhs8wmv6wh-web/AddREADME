@@ -43,7 +43,7 @@ export function languageBreakdown(books: Book[]): { language: BookLanguage; coun
 }
 
 export function monthlyBreakdown(books: Book[], year: number): Bucket[] {
-  const inYear = books.filter((book) => splitYearMonth(book.finishedDate!).year === year)
+  const inYear = finishedWithDate(books).filter((book) => splitYearMonth(book.finishedDate!).year === year)
   return Array.from({ length: 12 }, (_, index) => {
     const inMonth = inYear.filter((book) => splitYearMonth(book.finishedDate!).month === index)
     return { key: String(index), label: monthLabelShort(index), ...totals(inMonth) }

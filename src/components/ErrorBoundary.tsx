@@ -6,17 +6,19 @@ interface ErrorBoundaryProps {
 
 interface ErrorBoundaryState {
   error: Error | null
+  componentStack: string | null
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { error: null }
+  state: ErrorBoundaryState = { error: null, componentStack: null }
 
-  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     return { error }
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('Unhandled error in app:', error, info.componentStack)
+    this.setState({ componentStack: info.componentStack ?? null })
   }
 
   render() {
@@ -34,6 +36,11 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           >
             Neu laden
           </button>
+          <pre className="mt-4 max-w-full w-full max-h-64 overflow-auto text-left text-[11px] leading-snug bg-neutral-100 dark:bg-neutral-900 text-neutral-700 dark:text-neutral-300 rounded-md p-3 whitespace-pre-wrap break-words">
+            {this.state.error.name}: {this.state.error.message}
+            {this.state.error.stack ? `\n\n${this.state.error.stack}` : ''}
+            {this.state.componentStack ? `\n\nComponent-Stack:${this.state.componentStack}` : ''}
+          </pre>
         </div>
       )
     }

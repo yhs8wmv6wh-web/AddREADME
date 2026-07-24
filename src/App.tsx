@@ -109,7 +109,10 @@ function App() {
         )}
       </main>
 
-      <nav className="fixed bottom-0 inset-x-0 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800 px-4 py-2 flex gap-2 max-w-2xl mx-auto w-full">
+      <nav
+        className="fixed bottom-0 inset-x-0 bg-white dark:bg-neutral-950 border-t border-neutral-200 dark:border-neutral-800 px-4 pt-2 flex gap-2 max-w-2xl mx-auto w-full"
+        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
+      >
         <button onClick={() => setView({ name: 'shelf' })} className={navItemClass(view.name === 'shelf')}>
           Regal
         </button>
