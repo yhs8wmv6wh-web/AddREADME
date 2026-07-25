@@ -15,7 +15,9 @@ Ablenkung vom Inhalt.
   Texterkennung (OCR) automatisch vorausgefüllt und können vor dem Speichern
   korrigiert werden.
 - **Begonnen/Beendet** – Monat/Jahr genügt (bei "Beendet" auch Pflicht), der
-  genaue Tag ist ein optionales Extra-Feld, falls bekannt.
+  genaue Tag ist ein optionales Extra-Feld, falls bekannt. Beim Markieren als
+  "Am Lesen" wird das Startdatum automatisch auf heute vorausgefüllt (nur
+  wenn noch kein Datum gesetzt ist).
 - **Tags** – frei vergebbare Tags (z. B. "Buchklub"), über die sich das Regal
   filtern lässt – praktisch, um z. B. alle Bücher des eigenen Buchklubs
   auf einen Blick zu sehen.

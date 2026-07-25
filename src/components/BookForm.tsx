@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Book, BookInput, BookLanguage, BookStatus } from '../types'
 import { LANGUAGE_LABEL } from '../types'
-import { combineMonthAndDay, currentYearMonth, extractDay } from '../lib/date'
+import { combineMonthAndDay, currentDay, currentYearMonth, extractDay } from '../lib/date'
 import { searchBookCandidates, type BookCandidate } from '../lib/bookLookup'
 import { StarRating } from './StarRating'
 import { TagInput } from './TagInput'
@@ -44,6 +44,14 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
   const [showFinishedError, setShowFinishedError] = useState(false)
   const [lookupStatus, setLookupStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle')
   const [candidates, setCandidates] = useState<BookCandidate[]>([])
+
+  function handleStatusChange(value: BookStatus) {
+    setStatus(value)
+    if (value === 'reading' && !startedMonth) {
+      setStartedMonth(currentYearMonth())
+      setStartedDay(currentDay())
+    }
+  }
 
   async function handleLookup() {
     setLookupStatus('loading')
@@ -222,7 +230,7 @@ export function BookForm({ initial, onSubmit, onCancel, onDelete, submitLabel, e
               ['wishlist', 'Wunschliste'],
             ] as [BookStatus, string][]
           ).map(([value, label]) => (
-            <button key={value} type="button" onClick={() => setStatus(value)} className={segmentedButtonClass(status === value)}>
+            <button key={value} type="button" onClick={() => handleStatusChange(value)} className={segmentedButtonClass(status === value)}>
               {label}
             </button>
           ))}

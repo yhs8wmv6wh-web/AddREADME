@@ -19,6 +19,10 @@ export function currentYearMonth(): string {
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 }
 
+export function currentDay(): number {
+  return new Date().getDate()
+}
+
 /** Parses a "YYYY-MM" (or "YYYY-MM-DD") string without timezone shifting. */
 export function splitYearMonth(value: string): { year: number; month: number } {
   const [year, month] = value.split('-').map(Number)

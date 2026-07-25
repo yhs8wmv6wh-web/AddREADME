@@ -25,16 +25,18 @@ export function BookCard({ book, onClick }: BookCardProps) {
       className="flex flex-col text-left rounded-md overflow-hidden border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 active:scale-[0.98] transition-transform"
     >
       {book.coverUrl && !coverFailed ? (
-        <img
-          src={book.coverUrl}
-          alt=""
-          onError={() => setCoverFailed(true)}
-          className="h-28 w-full object-cover border-b border-neutral-200 dark:border-neutral-800"
-        />
+        <div className="aspect-[2/3] w-full bg-stone-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-800">
+          <img
+            src={book.coverUrl}
+            alt=""
+            onError={() => setCoverFailed(true)}
+            className="h-full w-full object-contain"
+          />
+        </div>
       ) : (
-        <div className="h-28 flex items-center justify-center px-3 text-center bg-stone-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-800 relative">
+        <div className="aspect-[2/3] w-full flex items-center justify-center px-3 text-center bg-stone-100 dark:bg-neutral-800 border-b border-neutral-200 dark:border-neutral-800 relative">
           <span className="absolute left-0 top-0 bottom-0 w-1 bg-neutral-900 dark:bg-neutral-100" />
-          <span className="font-serif text-neutral-900 dark:text-neutral-100 text-base leading-snug line-clamp-4">{book.title}</span>
+          <span className="font-serif text-neutral-900 dark:text-neutral-100 text-base leading-snug line-clamp-6">{book.title}</span>
         </div>
       )}
       <div className="p-2.5 flex flex-col gap-1">
