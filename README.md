@@ -1,37 +1,47 @@
-# Bücherregal
+# Kulturliste
 
-Eine kleine Progressive Web App (PWA), um gelesene Bücher zu tracken – auf dem
-Handy installierbar, alle Daten bleiben lokal auf dem Gerät. Bewusst
-zurückhaltend gestaltet: neutrale Farben, Serifen-Überschriften, keine
-Ablenkung vom Inhalt.
+Eine kleine Progressive Web App (PWA), um Kultur-Aktivitäten zu sammeln – auf
+dem Handy installierbar, alle Daten bleiben lokal auf dem Gerät. Bewusst
+schlicht: Titel eintragen, Kategorie wählen, abhaken, löschen.
 
-## Funktionen
+## So funktioniert es
 
-- **Bücher erfassen** – manuell (Titel, Autor:in, Seiten, Sprache, Genre,
-  Status, Bewertung, Notizen, Tags) oder per **Screenshot-Import**: Screenshot
-  aus dem Libby-Verlauf hochladen, Titel/Autor:in werden per Texterkennung
-  (OCR) automatisch vorausgefüllt und können vor dem Speichern korrigiert
-  werden.
-- **Begonnen/Beendet** – optionales Startdatum, verpflichtendes Enddatum
-  (mindestens Monat/Jahr) für als "Gelesen" markierte Bücher.
-- **Tags** – frei vergebbare Tags (z. B. "Buchklub"), über die sich das Regal
-  filtern lässt – praktisch, um z. B. alle Bücher des eigenen Buchklubs
-  auf einen Blick zu sehen.
-- **Digitales Bücherregal** – Übersicht aller Bücher mit Suche und Filter
-  (Gelesen / Am Lesen / Wunschliste / Tags), ideal zum Durchstöbern für
-  Empfehlungen oder Geschenkideen.
-- **Statistik-Seite** – Bücher/Seiten pro Jahr oder Monat, Aufschlüsselung
-  nach Sprache (Deutsch/Englisch/Andere) und Top-Genres. Nach Jahr filterbar.
-- **Läuft offline** – als PWA installierbar (Homescreen), Buchdaten liegen im
-  IndexedDB-Speicher des Browsers. Kein Server, kein Login.
+- **Eintrag anlegen** – Titel eingeben, eine Kategorie antippen, speichern. Mehr
+  braucht es nicht.
+- **Automatisch einsortiert** – jeder Eintrag landet im Abschnitt seiner
+  Kategorie.
+- **Abhaken** – einen Eintrag antippen, sobald du ihn erledigt hast (Film
+  gesehen, Buch gelesen, Konzert besucht …). Er wird dann **durchgestrichen**.
+- **Löschen** – erst wenn ein Eintrag durchgestrichen ist, erscheint der
+  „Löschen"-Button, mit dem du ihn entfernst.
 
-## OCR-Import: Hinweis
+## Kategorien
 
-Die Texterkennung (Tesseract.js) lädt das Sprachmodell beim ersten Einsatz
-von einem CDN nach – dafür ist beim ersten Scan einmalig eine
-Internetverbindung nötig. Erkannte Felder sind ein **Vorschlag**, der vor
-dem Speichern geprüft und bei Bedarf korrigiert werden sollte, da OCR aus
-Fotos/Screenshots nie 100% zuverlässig ist.
+Kinofilm · DVD-Film · Mediathek-Film · Serie/Streaming · Buch · Konzert · Oper ·
+Theater · Museum/Ausstellung · Podcast · Schallplatte (LP) · Spotify
+
+Jede Kategorie hat ein eigenes Emoji und eine eigene Farbe. In der Liste sind die
+Kategorien **aufklappbar** – antippen öffnet oder schließt den jeweiligen
+Abschnitt.
+
+## Speicherung
+
+Alle Einträge liegen im **IndexedDB-Speicher** des Browsers, also lokal auf dem
+Gerät. Kein Server, kein Login, kein manuelles Zwischenspeichern – die App merkt
+sich alles automatisch, auch nach dem Schließen. **Hinweis:** Es gibt kein
+Cloud-Backup; die Daten leben nur auf diesem Gerät.
+
+## App auf dem iPhone installieren
+
+1. `npm run build` und die `dist/`-Dateien hosten (z. B. auf einem beliebigen
+   Static-Hosting-Dienst) oder `npm run preview` im gleichen WLAN öffnen.
+2. Seite in **Safari** öffnen (nicht in einem In-App-Browser).
+3. Über **Teilen → „Zum Home-Bildschirm"** hinzufügen. Die App startet dann als
+   eigenständige App und funktioniert offline.
+
+Damit iOS den lokalen Speicher bei sehr langer Nichtnutzung nicht räumt, hilft
+es, die App auf dem Home-Bildschirm installiert zu haben und sie gelegentlich zu
+öffnen.
 
 ## Entwicklung
 
@@ -40,7 +50,7 @@ npm install
 npm run dev       # Dev-Server
 npm run build     # Produktions-Build (dist/)
 npm run preview   # Build lokal testen
-npm run lint       # oxlint
+npm run lint      # oxlint
 ```
 
 ## Tech-Stack
@@ -48,13 +58,4 @@ npm run lint       # oxlint
 - React + TypeScript + Vite
 - Tailwind CSS
 - IndexedDB (via `idb`) für lokale Datenhaltung
-- Tesseract.js für OCR
 - `vite-plugin-pwa` für Installierbarkeit/Offline-Support
-
-## App auf dem Handy installieren
-
-1. `npm run build` und die `dist/`-Dateien hosten (z. B. auf einem beliebigen
-   Static-Hosting-Dienst) oder `npm run preview` im gleichen WLAN öffnen.
-2. Seite im Handy-Browser öffnen.
-3. "Zum Home-Bildschirm hinzufügen" (iOS Safari) bzw. das Installations-Banner
-   (Android Chrome) nutzen.

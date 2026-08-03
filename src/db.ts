@@ -1,24 +1,24 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { Book, BookInput } from './types'
+import type { Entry, EntryInput } from './types'
 
-interface BookshelfDB extends DBSchema {
-  books: {
+interface KulturlisteDB extends DBSchema {
+  entries: {
     key: string
-    value: Book
+    value: Entry
     indexes: { 'by-createdAt': number }
   }
 }
 
-const DB_NAME = 'buecherregal'
+const DB_NAME = 'kulturliste'
 const DB_VERSION = 1
 
-let dbPromise: Promise<IDBPDatabase<BookshelfDB>> | null = null
+let dbPromise: Promise<IDBPDatabase<KulturlisteDB>> | null = null
 
 function getDB() {
   if (!dbPromise) {
-    dbPromise = openDB<BookshelfDB>(DB_NAME, DB_VERSION, {
+    dbPromise = openDB<KulturlisteDB>(DB_NAME, DB_VERSION, {
       upgrade(db) {
-        const store = db.createObjectStore('books', { keyPath: 'id' })
+        const store = db.createObjectStore('entries', { keyPath: 'id' })
         store.createIndex('by-createdAt', 'createdAt')
       },
     })
@@ -26,41 +26,37 @@ function getDB() {
   return dbPromise
 }
 
-export async function getAllBooks(): Promise<Book[]> {
+export async function getAllEntries(): Promise<Entry[]> {
   const db = await getDB()
-  const books = await db.getAllFromIndex('books', 'by-createdAt')
-  return books.reverse()
+  const entries = await db.getAllFromIndex('entries', 'by-createdAt')
+  return entries.reverse() // neueste zuerst
 }
 
-export async function getBook(id: string): Promise<Book | undefined> {
+export async function addEntry(input: EntryInput): Promise<Entry> {
   const db = await getDB()
-  return db.get('books', id)
-}
-
-export async function addBook(input: BookInput): Promise<Book> {
-  const db = await getDB()
-  const book: Book = {
+  const entry: Entry = {
     ...input,
     id: crypto.randomUUID(),
     createdAt: Date.now(),
   }
-  await db.put('books', book)
-  return book
+  await db.put('entries', entry)
+  return entry
 }
 
-export async function updateBook(id: string, input: BookInput): Promise<Book> {
+export async function toggleDone(id: string): Promise<Entry | undefined> {
   const db = await getDB()
-  const existing = await db.get('books', id)
-  const book: Book = {
-    ...input,
-    id,
-    createdAt: existing?.createdAt ?? Date.now(),
+  const existing = await db.get('entries', id)
+  if (!existing) return undefined
+  const entry: Entry = {
+    ...existing,
+    done: !existing.done,
+    doneAt: !existing.done ? Date.now() : null,
   }
-  await db.put('books', book)
-  return book
+  await db.put('entries', entry)
+  return entry
 }
 
-export async function deleteBook(id: string): Promise<void> {
+export async function deleteEntry(id: string): Promise<void> {
   const db = await getDB()
-  await db.delete('books', id)
+  await db.delete('entries', id)
 }

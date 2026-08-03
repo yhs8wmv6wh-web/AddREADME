@@ -12,9 +12,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/icon.svg'],
       manifest: {
-        name: 'Bücherregal',
-        short_name: 'Bücherregal',
-        description: 'Digitales Bücherregal – trage gelesene Bücher ein und behalte den Überblick.',
+        name: 'Kulturliste',
+        short_name: 'Kulturliste',
+        description: 'Einfache Liste für Kultur-Aktivitäten – Titel eintragen, Kategorie wählen, abhaken, löschen.',
         theme_color: '#1f2028',
         background_color: '#1f2028',
         display: 'standalone',
