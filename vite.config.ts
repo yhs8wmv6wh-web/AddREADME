@@ -4,7 +4,12 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
+// Wird unter https://yhs8wmv6wh-web.github.io/AddREADME/ (GitHub Pages) gehostet,
+// deshalb der Unterpfad als base.
+const BASE = '/AddREADME/'
+
 export default defineConfig({
+  base: BASE,
   plugins: [
     react(),
     tailwindcss(),
@@ -18,11 +23,12 @@ export default defineConfig({
         theme_color: '#1f2028',
         background_color: '#1f2028',
         display: 'standalone',
-        start_url: '/',
+        scope: BASE,
+        start_url: BASE,
         icons: [
-          { src: '/icons/icon.svg', sizes: '192x192', type: 'image/svg+xml' },
-          { src: '/icons/icon.svg', sizes: '512x512', type: 'image/svg+xml' },
-          { src: '/icons/icon.svg', sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable' },
+          { src: `${BASE}icons/icon.svg`, sizes: '192x192', type: 'image/svg+xml' },
+          { src: `${BASE}icons/icon.svg`, sizes: '512x512', type: 'image/svg+xml' },
+          { src: `${BASE}icons/icon.svg`, sizes: '512x512', type: 'image/svg+xml', purpose: 'maskable' },
         ],
       },
       workbox: {
