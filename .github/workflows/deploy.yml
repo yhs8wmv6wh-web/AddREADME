@@ -6,13 +6,11 @@ on:
       - main
   workflow_dispatch:
 
-# Klassische Branch-Veröffentlichung: der gebaute dist/-Ordner wird in den
-# Zweig gh-pages gepusht, und GitHub Pages wird per API darauf gestellt.
-# Das umgeht die "github-pages"-Umgebung (deren Schutzregel die
-# Actions-Veröffentlichung blockiert hat) vollständig.
+# Baut die App und legt den fertigen dist/-Ordner im Zweig gh-pages ab.
+# GitHub Pages muss einmalig (in den Repo-Einstellungen) als Quelle den
+# Zweig gh-pages bekommen; danach wird die Seite bei jedem Push aktualisiert.
 permissions:
   contents: write
-  pages: write
 
 concurrency:
   group: pages
@@ -43,17 +41,3 @@ jobs:
           git add -A
           git commit -q -m "Deploy ${{ github.sha }}"
           git push -f "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git" gh-pages
-
-      - name: Point GitHub Pages at the gh-pages branch
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          BODY='{"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}'
-          if echo "$BODY" | gh api -X PUT "repos/${{ github.repository }}/pages" --input - ; then
-            echo "Pages-Quelle auf gh-pages aktualisiert."
-          else
-            echo "Aktualisierung fehlgeschlagen – Pages neu anlegen…"
-            gh api -X DELETE "repos/${{ github.repository }}/pages" || true
-            sleep 5
-            echo "$BODY" | gh api -X POST "repos/${{ github.repository }}/pages" --input -
-          fi
