@@ -6,9 +6,10 @@ on:
       - main
   workflow_dispatch:
 
-# Baut die App und legt den fertigen dist/-Ordner im Zweig gh-pages ab.
-# GitHub Pages muss einmalig (in den Repo-Einstellungen) als Quelle den
-# Zweig gh-pages bekommen; danach wird die Seite bei jedem Push aktualisiert.
+# Baut beide Apps und legt sie im Zweig gh-pages ab:
+#   - Kulturliste  -> Wurzel        (…github.io/AddREADME/)
+#   - Bücher-App   -> Unterordner   (…github.io/AddREADME/buecher/)
+# GitHub Pages muss (einmalig, bereits erledigt) auf den Zweig gh-pages zeigen.
 permissions:
   contents: write
 
@@ -24,16 +25,34 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: npm ci
-      - run: npm run build
 
-      - name: Publish dist to gh-pages branch
+      - name: Kulturliste bauen (Wurzel)
+        run: |
+          npm ci
+          npm run build
+
+      - name: Bücher-App bauen (Unterordner /buecher/)
+        working-directory: buecher-app
+        env:
+          GITHUB_PAGES: "1"
+        run: |
+          npm ci
+          npm run build
+
+      - name: Ausgabe zusammenstellen
+        run: |
+          rm -rf public_site
+          mkdir -p public_site
+          cp -r dist/. public_site/
+          mkdir -p public_site/buecher
+          cp -r buecher-app/dist/. public_site/buecher/
+          touch public_site/.nojekyll
+
+      - name: Nach gh-pages veröffentlichen
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cd dist
-          touch .nojekyll
+          cd public_site
           git init -q
           git checkout -q -b gh-pages
           git config user.name "github-actions[bot]"

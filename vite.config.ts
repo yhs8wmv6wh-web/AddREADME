@@ -34,6 +34,10 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
+        // Die Bücher-App liegt unter /AddREADME/buecher/ und hat einen eigenen
+        // Service Worker – hier nicht abfangen, sonst würde die Kulturliste-Seite
+        // über diesen Bereich gelegt.
+        navigateFallbackDenylist: [/^\/AddREADME\/buecher\//],
       },
     }),
   ],
