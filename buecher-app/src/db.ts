@@ -86,6 +86,20 @@ export async function deleteBook(id: string): Promise<void> {
   await db.delete('books', id)
 }
 
+// Fügt Bücher aus einem Backup hinzu (überschreibt gleiche IDs) und gibt die
+// vollständige, aktuelle Liste zurück. Bestehende Bücher bleiben erhalten.
+export async function importBooks(books: Book[]): Promise<Book[]> {
+  const db = await getDB()
+  const tx = db.transaction('books', 'readwrite')
+  for (const book of books) {
+    if (book && typeof book.id === 'string' && typeof book.title === 'string') {
+      await tx.store.put(book)
+    }
+  }
+  await tx.done
+  return getAllBooks()
+}
+
 /**
  * Asks the browser to exempt this origin's storage from automatic eviction
  * (e.g. Safari's 7-day cap on unused sites). Best-effort: unsupported or

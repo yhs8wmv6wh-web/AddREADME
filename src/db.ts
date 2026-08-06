@@ -60,3 +60,17 @@ export async function deleteEntry(id: string): Promise<void> {
   const db = await getDB()
   await db.delete('entries', id)
 }
+
+// Fügt Einträge aus einem Backup hinzu (überschreibt gleiche IDs) und gibt
+// die vollständige, aktuelle Liste zurück. Bestehende Einträge bleiben erhalten.
+export async function importEntries(entries: Entry[]): Promise<Entry[]> {
+  const db = await getDB()
+  const tx = db.transaction('entries', 'readwrite')
+  for (const entry of entries) {
+    if (entry && typeof entry.id === 'string' && typeof entry.title === 'string') {
+      await tx.store.put(entry)
+    }
+  }
+  await tx.done
+  return getAllEntries()
+}

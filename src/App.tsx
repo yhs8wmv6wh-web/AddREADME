@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import type { Entry, EntryInput } from './types'
-import { addEntry, deleteEntry, getAllEntries, toggleDone } from './db'
+import { addEntry, deleteEntry, getAllEntries, importEntries, toggleDone } from './db'
 import { EntryList } from './components/EntryList'
 import { EntryForm } from './components/EntryForm'
+import { BackupBar } from './components/BackupBar'
 
 type View = { name: 'list' } | { name: 'add' }
 
@@ -40,6 +41,12 @@ function App() {
     setEntries((prev) => prev.filter((entry) => entry.id !== id))
   }
 
+  async function handleImport(imported: Entry[]) {
+    const merged = await importEntries(imported)
+    setEntries(merged)
+    alert(`${imported.length} Einträge aus dem Backup geladen.`)
+  }
+
   return (
     <div className="min-h-dvh flex flex-col bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
       <header className="sticky top-0 z-10 bg-white dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800 px-4 py-3.5">
@@ -50,7 +57,10 @@ function App() {
         {!loaded ? (
           <p className="text-center text-neutral-500 dark:text-neutral-400 py-16">Lädt …</p>
         ) : view.name === 'list' ? (
-          <EntryList entries={entries} onToggle={handleToggle} onDelete={handleDelete} />
+          <>
+            <EntryList entries={entries} onToggle={handleToggle} onDelete={handleDelete} />
+            <BackupBar entries={entries} onImport={handleImport} />
+          </>
         ) : (
           <EntryForm onSubmit={handleAdd} onCancel={() => setView({ name: 'list' })} />
         )}

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Book, BookInput } from './types'
-import { addBook, deleteBook, getAllBooks, requestPersistentStorage, updateBook } from './db'
+import { addBook, deleteBook, getAllBooks, importBooks, requestPersistentStorage, updateBook } from './db'
 import { getAllTags } from './lib/stats'
 import { Bookshelf } from './components/Bookshelf'
+import { BackupBar } from './components/BackupBar'
 import { BookForm } from './components/BookForm'
 import { ScreenshotImport } from './components/ScreenshotImport'
 import { Statistics } from './components/Statistics'
@@ -55,6 +56,12 @@ function App() {
     setView({ name: 'shelf' })
   }
 
+  async function handleImport(imported: Book[]) {
+    const merged = await importBooks(imported)
+    setBooks(merged)
+    alert(`${imported.length} Bücher aus dem Backup geladen.`)
+  }
+
   return (
     <div className="min-h-dvh flex flex-col bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
       <header className="sticky top-0 z-10 bg-white dark:bg-neutral-950 border-b border-neutral-200 dark:border-neutral-800 px-4 py-3.5">
@@ -65,7 +72,10 @@ function App() {
         {!loaded ? (
           <p className="text-center text-neutral-500 dark:text-neutral-400 py-16">Lädt …</p>
         ) : view.name === 'shelf' ? (
-          <Bookshelf books={books} onSelect={(book) => setView({ name: 'edit', book })} />
+          <>
+            <Bookshelf books={books} onSelect={(book) => setView({ name: 'edit', book })} />
+            <BackupBar books={books} onImport={handleImport} />
+          </>
         ) : view.name === 'stats' ? (
           <Statistics books={books} />
         ) : view.name === 'add-choice' ? (
