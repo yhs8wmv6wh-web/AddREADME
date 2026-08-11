@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1f2028"/>
+  <g transform="translate(236 236)">
+    <circle cx="0" cy="0" r="96" fill="none" stroke="#2dd4bf" stroke-width="34"/>
+    <line x1="70" y1="70" x2="150" y2="150" stroke="#2dd4bf" stroke-width="42" stroke-linecap="round"/>
+    <text x="0" y="6" text-anchor="middle" dominant-baseline="middle" font-family="Georgia, 'Times New Roman', serif" font-size="104" font-style="italic" fill="#2dd4bf">Ä</text>
+  </g>
+</svg>
