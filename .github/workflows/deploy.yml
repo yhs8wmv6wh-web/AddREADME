@@ -6,9 +6,10 @@ on:
       - main
   workflow_dispatch:
 
-# Baut beide Apps und legt sie im Zweig gh-pages ab:
-#   - Kulturliste  -> Wurzel        (…github.io/AddREADME/)
-#   - Bücher-App   -> Unterordner   (…github.io/AddREADME/buecher/)
+# Baut alle Apps und legt sie im Zweig gh-pages ab:
+#   - Kulturliste    -> Wurzel        (…github.io/AddREADME/)
+#   - Bücher-App     -> Unterordner   (…github.io/AddREADME/buecher/)
+#   - Fremdwörter    -> Unterordner   (…github.io/AddREADME/fremdwoerter/)
 # GitHub Pages muss (einmalig, bereits erledigt) auf den Zweig gh-pages zeigen.
 permissions:
   contents: write
@@ -39,6 +40,14 @@ jobs:
           npm ci
           npm run build
 
+      - name: Fremdwörter-App bauen (Unterordner /fremdwoerter/)
+        working-directory: fremdwoerter-app
+        env:
+          GITHUB_PAGES: "1"
+        run: |
+          npm ci
+          npm run build
+
       - name: Ausgabe zusammenstellen
         run: |
           rm -rf public_site
@@ -46,6 +55,8 @@ jobs:
           cp -r dist/. public_site/
           mkdir -p public_site/buecher
           cp -r buecher-app/dist/. public_site/buecher/
+          mkdir -p public_site/fremdwoerter
+          cp -r fremdwoerter-app/dist/. public_site/fremdwoerter/
           touch public_site/.nojekyll
 
       - name: Nach gh-pages veröffentlichen
