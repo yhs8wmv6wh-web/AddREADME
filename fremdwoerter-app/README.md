@@ -32,6 +32,23 @@ Kein Server, kein Login. Über **Sichern/Wiederherstellen** lässt sich die Samm
 JSON-Datei exportieren und importieren. **Hinweis:** Es gibt kein Cloud-Backup; die
 Daten leben nur auf diesem Gerät.
 
+## Daten sichern & nicht verlieren (wichtig auf dem iPhone)
+
+Auf dem iPhone kann iOS/Safari den lokalen Speicher einer Website in seltenen Fällen räumen –
+dann wären Wörter **und** der API-Schlüssel weg. So beugst du vor:
+
+- **App installieren und von dort nutzen:** über **Teilen → „Zum Home-Bildschirm"** hinzufügen
+  und danach **immer über dieses Symbol** öffnen (nicht als loser Safari-Tab). Nur so behandelt
+  iOS den Speicher zuverlässig als dauerhaft. Die App zeigt unter **Einstellungen** an, ob der
+  dauerhafte Speicher aktiv ist.
+- **Gelegentlich öffnen**, damit iOS die App als „genutzt" einstuft.
+- **Ab und zu „Sichern" antippen:** Auf dem iPhone öffnet sich die Teilen-Funktion, mit der du
+  die Backup-Datei in **„Dateien"/iCloud** ablegen kannst. Damit lässt sich alles jederzeit über
+  **„Wiederherstellen"** zurückholen. Die App erinnert dezent, wenn länger nicht gesichert wurde.
+
+Hundertprozentige Sicherheit gäbe es nur mit einer echten Cloud-Sicherung (separater Dienst);
+die Maßnahmen oben senken das Risiko aber deutlich.
+
 ## App auf dem iPhone installieren
 
 1. Die veröffentlichte Adresse `…github.io/AddREADME/fremdwoerter/` in **Safari** öffnen.

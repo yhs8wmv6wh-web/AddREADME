@@ -77,16 +77,31 @@ export async function importFremdwoerter(woerter: Fremdwort[]): Promise<Fremdwor
   return getAllFremdwoerter()
 }
 
+export type StorageStatus = 'persistent' | 'best-effort' | 'unsupported'
+
 /**
- * Bittet den Browser, den Speicher dieser Seite von der automatischen Räumung
- * auszunehmen (z. B. Safaris 7-Tage-Grenze für ungenutzte Seiten). Best effort:
- * in manchen Browsern nicht unterstützt oder still abgelehnt, aber harmlos.
+ * Bittet den Browser, den Speicher dieser Seite dauerhaft zu schützen (nicht
+ * automatisch zu räumen). Gibt den resultierenden Status zurück:
+ * - 'persistent'  – Speicher ist geschützt.
+ * - 'best-effort' – nicht garantiert; iOS kann ihn theoretisch räumen.
+ * - 'unsupported' – der Browser kennt die Funktion nicht.
  */
-export async function requestPersistentStorage(): Promise<boolean> {
-  if (!navigator.storage?.persist) return false
+export async function requestPersistentStorage(): Promise<StorageStatus> {
+  if (!navigator.storage?.persist || !navigator.storage?.persisted) return 'unsupported'
   try {
-    return await navigator.storage.persist()
+    if (await navigator.storage.persisted()) return 'persistent'
+    return (await navigator.storage.persist()) ? 'persistent' : 'best-effort'
   } catch {
-    return false
+    return 'unsupported'
+  }
+}
+
+/** Aktueller Schutz-Status, ohne den Browser erneut um Erlaubnis zu bitten. */
+export async function getStorageStatus(): Promise<StorageStatus> {
+  if (!navigator.storage?.persisted) return 'unsupported'
+  try {
+    return (await navigator.storage.persisted()) ? 'persistent' : 'best-effort'
+  } catch {
+    return 'unsupported'
   }
 }

@@ -6,16 +6,26 @@ import {
   importFremdwoerter,
   requestPersistentStorage,
   saveFremdwort,
+  type StorageStatus,
 } from './db'
 import { clearApiKey, getApiKey, hasApiKey, setApiKey } from './lib/apiKey'
 import { lookupWord } from './lib/anthropic'
 import { LookupForm } from './components/LookupForm'
 import { WordList } from './components/WordList'
 import { ApiKeySettings } from './components/ApiKeySettings'
+import { StorageNotice } from './components/StorageNotice'
 import { BackupBar } from './components/BackupBar'
 import { UpdatePrompt } from './components/UpdatePrompt'
 
 type View = 'liste' | 'einstellungen'
+
+// Läuft die App als installierte Home-Bildschirm-App (statt als Safari-Tab)?
+// Nur dann behandelt iOS den Speicher zuverlässig dauerhaft.
+function detectStandalone(): boolean {
+  const iosStandalone = (navigator as unknown as { standalone?: boolean }).standalone === true
+  const displayMode = window.matchMedia?.('(display-mode: standalone)').matches ?? false
+  return iosStandalone || displayMode
+}
 
 const navItemClass = (active: boolean) =>
   `flex-1 rounded-md py-2.5 text-sm ${
@@ -32,8 +42,11 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<Fremdwort | null>(null)
 
+  const [standalone] = useState(detectStandalone)
+  const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(null)
+
   useEffect(() => {
-    requestPersistentStorage()
+    requestPersistentStorage().then(setStorageStatus)
     getAllFremdwoerter().then((list) => {
       setWoerter(list)
       setLoaded(true)
@@ -98,6 +111,13 @@ function App() {
           <p className="text-center text-neutral-500 dark:text-neutral-400 py-16">Lädt …</p>
         ) : view === 'liste' ? (
           <div className="flex flex-col gap-8">
+            {!standalone && (
+              <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 text-sm text-amber-800 dark:text-amber-300 leading-relaxed">
+                <strong>Tipp fürs iPhone:</strong> Füge die App über <strong>Teilen → „Zum Home-Bildschirm"</strong> hinzu
+                und öffne sie danach immer über dieses Symbol. Nur so speichert iOS deine Wörter zuverlässig dauerhaft.
+              </div>
+            )}
+
             <LookupForm onLookup={handleLookup} loading={loading} error={error} result={result} />
 
             {!keyPresent && (
@@ -116,7 +136,10 @@ function App() {
             </div>
           </div>
         ) : (
-          <ApiKeySettings hasKey={keyPresent} onSave={handleSaveKey} onClear={handleClearKey} />
+          <div className="flex flex-col gap-8">
+            <StorageNotice status={storageStatus} standalone={standalone} />
+            <ApiKeySettings hasKey={keyPresent} onSave={handleSaveKey} onClear={handleClearKey} />
+          </div>
         )}
       </main>
 
