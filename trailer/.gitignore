@@ -4,3 +4,4 @@ voice/*.wav
 music/*.wav
 versions/*/*.mp4
 __pycache__/
+ffmpeg2pass*

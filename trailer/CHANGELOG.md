@@ -43,3 +43,10 @@ Director:
 6. Neues Bild „sheet_music" (Notenblatt, Bleistift, Kaffeering) für „schrieb er ein Lied" statt der dritten Klaviertasten-Einstellung.
 
 Eigene Korrektur: Ohne V01 war der Einstieg zu leise (-35 bis -48 dB), deshalb Musik 0–6 s auf +8 dB.
+
+## v4 – Runde 3 (Abnahme: Director „ABNAHME", Script Doctor „ABNAHME nach 2 Korrekturen")
+1. V07 auf 31,1 s, V08 „Klavier." auf 35,1 s. Das Wort endet jetzt vor dem Pauken-Downbeat bei 36,0 s (Script Doctor #1 und Director optional #1).
+2. Stop-Time-Break bis 53,25 s verlängert, damit „Katzeklo." komplett im Luftloch steht. Der Snare-Anstieg läuft nur noch 53,25–54,0 s (Script Doctor #2).
+3. S20: Ken-Burns-Endpunkt höher (cy 0,22), damit über Helges Haaren Luft zur Letterbox bleibt (Director optional #2).
+
+Nicht umgesetzt: „Aber nicht die richtige." / „ER HATTE KEINEN PLAN." / „Weiß ich auch nicht." bleibt als Running Gag (Script Doctor: optional).
