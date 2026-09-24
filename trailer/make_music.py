@@ -128,6 +128,8 @@ def compose():
         grow = i * 8
         # Streicher-Ostinato in Achteln
         for k in range(8):
+            if b == 18 and 3 <= k <= 6:  # Stop-Time-Break unter "Katzeklo."
+                continue
             p = [r, fifth, r, third][k % 4]
             note("strings", p, s + k * 0.5, 0.45, 70 + grow + (8 if k % 2 == 0 else 0))
             note("strings", n(p) + 12, s + k * 0.5, 0.45, 55 + grow)
@@ -142,6 +144,8 @@ def compose():
     pb = beat(37.5)
     for k, p in enumerate(["D4", "F4", "A4", "D5", "F5", "A5"]):
         note("piano", p, pb + k * 0.25, 0.3 if k < 5 else 1.0, 110)
+        note("piano", n(p) - 12, pb + k * 0.25, 0.3 if k < 5 else 1.0, 100)
+    chord("piano", ["D2", "A2", "D3", "F3"], beat(38.25), 1.0, 118)
     # SCHLAGZEUG (40.5) / GITARRE (42.0)
     sb = beat(39.0)
     for off, p, d in [(0, "D4", 0.25), (0.25, "F4", 0.25), (0.5, "A4", 0.25), (0.75, "C5", 0.5), (1.25, "Bb4", 0.75)]:
@@ -157,9 +161,9 @@ def compose():
     # "Und dann ..." (48.0) Streicher-Anstieg chromatisch bis 54.0
     for k in range(16):
         note("pad", n("A3") + k // 2, beat(48.0) + k * 0.5, 0.5, 60 + k * 3)
-    # Snare-Anstieg Takt 18
-    for k in range(8):
-        drum(38, bar(18) + k * 0.5, 60 + k * 6)
+    # Snare-Anstieg nach dem Break
+    for k in range(6):
+        drum(38, beat(52.5) + k * 0.25, 80 + k * 8)
 
     # ---------- Takt 19: Tom-Wirbel 54.0-55.5, dann STILLE ----------
     toms = [50, 48, 47, 45, 43, 41]
@@ -231,7 +235,8 @@ def render(midi_path, wav_path):
     c, d = int(T.PUNCH_SILENCE[0] * SR), int(T.PUNCH_SILENCE[1] * SR)
     env[c:d] = np.minimum(env[c:d], np.concatenate([np.linspace(1, 0, int(0.6 * SR)), np.zeros(d - c - int(0.6 * SR))]))
     # Pegel-Automation (dB), damit leise Teile hörbar bleiben; Hit-Ausklang bis 63 s ausblenden
-    pts = [(0, 5), (17.9, 5), (18.0, 2), (35.9, 2), (36.0, 0), (45.0, 3), (54.0, 6), (55.45, 7), (57.0, 0), (61.5, 0), (62.95, -60), (63.0, 12), (75, 12)]
+    pts = [(0, 8), (5.9, 8), (6.0, 2), (17.9, 2), (18.0, 4), (36.0, 4), (45.0, 5), (51.3, 5), (51.4, -8), (52.45, -8), (52.5, 5),
+           (54.0, 6), (55.45, 7), (57.0, 0), (61.5, 0), (62.95, -60), (63.0, 12), (75, 12)]
     ts = np.arange(total) / SR
     env *= 10 ** (np.interp(ts, [p[0] for p in pts], [p[1] for p in pts]) / 20)
     # Ausklang

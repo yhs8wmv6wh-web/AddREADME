@@ -113,7 +113,7 @@ def docs(folder):
             bild += f" (Ken Burns {z0:.2f}→{z1:.2f})"
         if s.get("lower"):
             bild += f"; Einblendung „{s['lower']}“"
-        vo = "<br>".join(f"**{l['who']}** ({l['t']:.1f}s): {clean(l['text'])}" for l in vo_by_shot.get(s["id"], [])) or "–"
+        vo = "<br>".join(f"**{l['who']}** ({l['t']:.2f}s): {clean(l['text'])}" for l in vo_by_shot.get(s["id"], [])) or "–"
         rows.append(f"| {s['id']} | {s['act']} | {s['start']:.2f}–{s['start'] + s['dur']:.2f} | {s['dur']:.2f} | {bild} | {vo} | {s['mood']} |")
     head = (f"# Shotlist – HELGE ({T.VERSION})\n\nTempo {T.BPM} BPM, Beat {T.BEAT:.2f} s, Takt {T.BAR:.1f} s. "
             f"Alle Schnitte auf dem Beat-Raster. Stille {T.SILENCE[0]}–{T.SILENCE[1]} s, Schluss-Hit bei {T.TITLE_HIT} s.\n\n")
@@ -128,7 +128,7 @@ def docs(folder):
         if shot["act"] != act:
             act = shot["act"]
             lines.append(f"\n## {act}\n")
-        lines.append(f"**{l['who']}** `{l['t']:.1f}–{l['t'] + dur[l['id']] - 0.25:.1f}s`  \n{clean(l['text'])}\n")
+        lines.append(f"**{l['who']}** `{l['t']:.2f}–{l['t'] + dur[l['id']] - 0.25:.2f}s`  \n{clean(l['text'])}\n")
     lines.append("\n## Texttafeln\n")
     lines += [f"- {s['start']:.2f}s: {s['card']}" for s in shots if "card" in s]
     open(os.path.join(folder, "skript.md"), "w").write("\n".join(lines) + "\n")

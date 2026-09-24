@@ -27,3 +27,19 @@ Director:
 8. Pad und Bass-Auftakt unter „ER HATTE KEINEN PLAN.", damit es keine zweite Stille gibt.
 
 Eigene Korrektur: V01 war zu lang für S01, deshalb Schnitt S01/S02 auf 6,75 s verschoben.
+
+## v3 – Runde 2
+Script Doctor:
+1. „Klavier." als trockene Antwort direkt nach „Also lernte er … was Anständiges." (V08 bei 35,3 s über der Silhouette am Klavier, 0,66 s Pause). Die Tafel KLAVIER läuft jetzt ohne Sprecher.
+   Abweichung: Der Schnitt bleibt auf dem Downbeat 36,0 s (nicht 36,75 s), damit Pauke und Ostinato genau auf den Schnitt fallen.
+2. Shotlist und Skript zeigen die Zeiten jetzt mit zwei Nachkommastellen (vorher gerundet, z. B. 51,8 statt 51,75).
+
+Director:
+1. Stop-Time-Break 51,375–52,5 s: Ostinato pausiert, Musik -8 dB, „Katzeklo." fällt ins Luftloch. Snare-Anstieg erst ab 52,5 s.
+2. Pegel-Automation: Konflikt +4 dB, kein Einbruch mehr zu Beginn der Eskalation.
+3. KLAVIER-Tafel: Lauf in Oktaven, dazu ein Akkord der linken Hand bei 38,25 s. Das Loch bei 38–39 s ist weg.
+4. V01 gestrichen. Die Einblendung „MÜLHEIM AN DER RUHR · 1955" trägt den Einstieg allein, alle Schnitte liegen wieder auf dem Takt-Raster (S01/S02 bei 6,0 s).
+5. Pointe: Ken Burns 1,0→1,8 auf Helge. Bei „Nee." ist nur noch er im Bild.
+6. Neues Bild „sheet_music" (Notenblatt, Bleistift, Kaffeering) für „schrieb er ein Lied" statt der dritten Klaviertasten-Einstellung.
+
+Eigene Korrektur: Ohne V01 war der Einstieg zu leise (-35 bis -48 dB), deshalb Musik 0–6 s auf +8 dB.

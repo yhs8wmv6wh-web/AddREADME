@@ -448,6 +448,50 @@ def cat():
     return haze(img, 12, 9)
 
 
+def sheet_music():
+    img = vgrad([(0, (30, 20, 14)), (1, (14, 9, 6))])
+    img = add(img, radial(1700, 900, 1600, (200, 120, 60), 1.6, 0.6, sy=0.7))
+    # Notenblatt (flach gezeichnet, dann gedreht)
+    pw, ph = 2200, 2900
+    paper = Image.new("RGBA", (pw, ph), (236, 226, 200, 255))
+    d = ImageDraw.Draw(paper)
+    for sys_i in range(7):
+        y0 = 360 + sys_i * 360
+        for l in range(5):
+            d.line([(140, y0 + l * 34), (pw - 140, y0 + l * 34)], fill=(90, 80, 70, 255), width=5)
+        d.line([(140, y0), (140, y0 + 136)], fill=(60, 50, 45, 255), width=7)
+        # handgekritzelte Noten
+        x = 260
+        while x < pw - 220:
+            yy = y0 + rng.randint(-2, 9) * 17
+            d.ellipse([x - 26, yy - 18, x + 26, yy + 18], fill=(30, 26, 24, 255))
+            d.line([(x + 22, yy), (x + 22 + rng.randint(-4, 4), yy - 130)], fill=(30, 26, 24, 255), width=7)
+            if rng.random() < 0.35:
+                d.line([(x + 22, yy - 130), (x + 130, yy - 120 + rng.randint(-10, 10))], fill=(30, 26, 24, 255), width=14)
+            if rng.random() < 0.12:  # durchgestrichen
+                d.line([(x - 60, yy + 40), (x + 80, yy - 60)], fill=(40, 30, 28, 255), width=9)
+            x += rng.randint(110, 190)
+    # Kaffeering
+    d.ellipse([1500, 2200, 1950, 2650], outline=(150, 100, 60, 150), width=22)
+    paper = paper.rotate(-12, expand=True, resample=Image.BICUBIC)
+    img.paste(paper, (900, -350), paper)
+    # Bleistift
+    pencil = Image.new("RGBA", (1500, 70), (0, 0, 0, 0))
+    pd = ImageDraw.Draw(pencil)
+    pd.rectangle([0, 0, 1300, 70], fill=(220, 170, 40, 255))
+    pd.rectangle([0, 0, 90, 70], fill=(200, 110, 120, 255))
+    pd.polygon([(1300, 0), (1500, 35), (1300, 70)], fill=(225, 190, 150, 255))
+    pd.polygon([(1440, 24), (1500, 35), (1440, 46)], fill=(40, 40, 40, 255))
+    pencil = pencil.rotate(25, expand=True, resample=Image.BICUBIC)
+    img.paste(pencil, (1300, 1300), pencil)
+    # Lampenlicht, Rand abgedunkelt
+    arr = np.asarray(img).astype(np.float32)
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    lamp = np.clip(1.25 - np.sqrt(((xx - 1900) / 2200) ** 2 + ((yy - 900) / 1300) ** 2), 0.15, 1.1)
+    arr *= lamp[:, :, None] * np.array([1.05, 0.92, 0.75])
+    return haze(Image.fromarray(arr.clip(0, 255).astype(np.uint8)), 10, 11)
+
+
 def interview():
     img = vgrad([(0, (26, 24, 30)), (0.7, (40, 34, 36)), (1, (14, 12, 14))])
     img = add(img, radial(1920, 900, 1500, (90, 70, 60), 1.6, 0.8, sy=0.6))
@@ -555,7 +599,7 @@ CARDS = {
 IMAGES = {
     "ruhr_dusk": ruhr_dusk, "window_night": window_night, "piano_keys": piano_keys,
     "stage_empty": stage_empty, "mic_spot": mic_spot, "kitchen_night": kitchen_night,
-    "silhouette_piano": silhouette_piano, "crowd": crowd, "cat": cat, "interview": interview,
+    "silhouette_piano": silhouette_piano, "crowd": crowd, "cat": cat, "interview": interview, "sheet_music": sheet_music,
 }
 
 
