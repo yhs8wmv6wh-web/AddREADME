@@ -1,0 +1,6 @@
+build/
+assets/images/
+voice/*.wav
+music/*.wav
+versions/*/*.mp4
+__pycache__/
