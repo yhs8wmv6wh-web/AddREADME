@@ -79,7 +79,7 @@ def audio(out):
         parts.append(f"[{i}:a]adelay={ms}|{ms},aformat=channel_layouts=stereo[v{i}]")
     n = len(T.VO)
     fc = ";".join(parts)
-    fc += ";" + "".join(f"[v{i}]" for i in range(1, n + 1)) + f"amix=inputs={n}:normalize=0,apad=whole_dur={T.DURATION},volume=1.0[vo]"
+    fc += ";" + "".join(f"[v{i}]" for i in range(1, n + 1)) + f"amix=inputs={n}:normalize=0,apad=whole_dur={T.DURATION},volume=0.75[vo]"
     fc += ";[vo]asplit=2[vo_mix][vo_sc]"
     # Ducking: Musik wird unter dem Voiceover abgesenkt
     fc += ";[0:a]volume=0.8[mus];[mus][vo_sc]sidechaincompress=threshold=0.02:ratio=6:attack=15:release=350:makeup=1[duck]"

@@ -17,6 +17,7 @@ TPB = 480
 SR = 48000
 
 NOTE = {n: i for i, n in enumerate(["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"])}
+NOTE.update({"Db": 1, "D#": 3, "Gb": 6, "G#": 8, "A#": 10})
 
 
 def n(name):
@@ -84,6 +85,10 @@ def compose():
         s = bar(b)
         if b == 6:  # Klavier hält Akkord unter der Tafel "Er hatte keinen Plan"
             chord("piano", ["A1", "A2"] + voicing, s, 4, 72, roll=0.08)
+            chord("pad", ["A2", "E3", "G3"], s, 4, 58)
+            note("bass", "E2", s + 3, 0.5, 80)
+            note("bass", "G#2", s + 3.5, 0.5, 85)
+            drum(51, s + 3, 45)
             continue
         chord("piano", [root] + voicing, s, 4, 62 + b * 2, roll=0.06)
         for (off, p, d) in MOTIF[(b - 1) % 4]:
@@ -133,7 +138,11 @@ def compose():
         if i >= 2:
             drum(36, s, 80 + grow)
             drum(36, s + 2, 75 + grow)
-    # Cards: SAXOFON (39.0) / SCHLAGZEUG (40.5) / GITARRE (42.0)
+    # Cards: KLAVIER (37.5) / SAXOFON (39.0)
+    pb = beat(37.5)
+    for k, p in enumerate(["D4", "F4", "A4", "D5", "F5", "A5"]):
+        note("piano", p, pb + k * 0.25, 0.3 if k < 5 else 1.0, 110)
+    # SCHLAGZEUG (40.5) / GITARRE (42.0)
     sb = beat(39.0)
     for off, p, d in [(0, "D4", 0.25), (0.25, "F4", 0.25), (0.5, "A4", 0.25), (0.75, "C5", 0.5), (1.25, "Bb4", 0.75)]:
         note("sax", p, sb + off, d, 105)
@@ -142,6 +151,9 @@ def compose():
         drum(key, db + k * 0.25, 90 + k * 4)
     chord("guitar", ["D3", "A3", "D4"], beat(42.0), 1.8, 110)
     chord("brass", ["D3", "A3", "D4"], beat(42.0), 1.0, 90)
+    for k in range(6):
+        drum(38, beat(46.5) + k * 0.25, 70 + k * 6)
+    chord("brass", ["C3", "G3", "C4"], beat(46.5), 1.5, 80)
     # "Und dann ..." (48.0) Streicher-Anstieg chromatisch bis 54.0
     for k in range(16):
         note("pad", n("A3") + k // 2, beat(48.0) + k * 0.5, 0.5, 60 + k * 3)
@@ -153,31 +165,34 @@ def compose():
     toms = [50, 48, 47, 45, 43, 41]
     b0 = beat(54.0)
     for k in range(8):  # 16tel über 2 Beats
-        drum(toms[k % len(toms)], b0 + k * 0.25, 90 + k * 4)
-        note("strings", "A3", b0 + k * 0.25, 0.25, 90 + k * 3)
-        note("strings", "A4", b0 + k * 0.25, 0.25, 85 + k * 3)
+        drum(toms[k % len(toms)], b0 + k * 0.25, 110 + k * 2)
+        note("strings", "A3", b0 + k * 0.25, 0.25, 105 + k * 3)
+        note("strings", "A4", b0 + k * 0.25, 0.25, 100 + k * 3)
+        if k >= 4:
+            drum(49, b0 + k * 0.25, 70 + (k - 4) * 15)
     note("timp", "A1", b0, 2, 110)
 
     # ---------- SCHLUSS-HIT auf die Titelkarte (57.0) ----------
     h = beat(T.TITLE_HIT)
-    chord("brass", ["D3", "A3", "D4", "F4", "A4"], h, 5, 120)
-    chord("horn", ["D3", "F3", "A3"], h, 6, 115)
-    chord("strings", ["D2", "D3", "A3", "D4", "F4", "D5"], h, 7, 118)
-    chord("piano", ["D1", "D2", "A2"], h, 7, 120)
-    note("bass", "D1", h, 7, 120)
+    chord("brass", ["D3", "A3", "D4", "F4", "A4"], h, 5, 127)
+    chord("horn", ["D3", "F3", "A3"], h, 6, 127)
+    chord("strings", ["D2", "D3", "A3", "D4", "F4", "D5"], h, 7, 127)
+    chord("piano", ["D1", "D2", "A2"], h, 7, 127)
+    note("bass", "D1", h, 7, 127)
     note("timp", "D2", h, 2, 127)
+    note("timp", "D1", h, 2, 127)
     drum(49, h, 127)
-    drum(57, h, 120)
+    drum(57, h, 127)
     drum(36, h, 127)
+    drum(36, h + 0.02, 127)
 
     # ---------- POINTE: 63-75 s ----------
     p0 = beat(63.0)
     for off, p, d, v in [(0, "A5", 1, 72), (1, "F5", 1, 68), (2, "D5", 2, 66), (4, "E5", 1, 64), (5, "C#5", 1.5, 60)]:
         note("piano", p, p0 + off, d, v)
     chord("piano", ["D3", "A3", "F4"], p0, 5, 50)
-    # 67.5 bis 70.5: Stille (Fragepause und "Nee.")
-    # 70.5: schiefer Klavierton zur Endtafel
-    chord("piano", ["D2", "D4", "Eb4"], beat(70.5), 3.5, 95)
+    # Stille um das "Nee.", dann schiefer Klavierton auf den Schnitt zur Endtafel
+    chord("piano", ["D2", "D4", "Eb4"], beat(T.PLONK), 3.5, 95)
 
 
 def write_midi(path):
@@ -212,11 +227,11 @@ def render(midi_path, wav_path):
     fade = int(0.02 * SR)
     env[a:b] = 0
     env[a:a + fade] = np.linspace(1, 0, fade)
-    # Stille in der Pointe: 67.5 - 70.5 s
-    c, d = int(67.5 * SR), int(70.5 * SR)
+    # Stille in der Pointe
+    c, d = int(T.PUNCH_SILENCE[0] * SR), int(T.PUNCH_SILENCE[1] * SR)
     env[c:d] = np.minimum(env[c:d], np.concatenate([np.linspace(1, 0, int(0.6 * SR)), np.zeros(d - c - int(0.6 * SR))]))
     # Pegel-Automation (dB), damit leise Teile hörbar bleiben; Hit-Ausklang bis 63 s ausblenden
-    pts = [(0, 8), (5.9, 8), (6.0, 4), (17.9, 4), (18.0, 2), (35.9, 2), (36.0, 0), (61.5, 0), (62.95, -60), (63.0, 12), (75, 12)]
+    pts = [(0, 5), (17.9, 5), (18.0, 2), (35.9, 2), (36.0, 0), (45.0, 3), (54.0, 6), (55.45, 7), (57.0, 0), (61.5, 0), (62.95, -60), (63.0, 12), (75, 12)]
     ts = np.arange(total) / SR
     env *= 10 ** (np.interp(ts, [p[0] for p in pts], [p[1] for p in pts]) / 20)
     # Ausklang

@@ -535,13 +535,14 @@ def end_card():
     d = ImageDraw.Draw(img)
     center_text(d, "DEMNÄCHST IM KINO.", font(BEBAS, 300), 720, (235, 230, 220), 20)
     center_text(d, "Vielleicht.", font(SERIF, 170), 1080, (200, 160, 90))
-    center_text(d, "Fan-Trailer · fiktive Szenen · nicht autorisiert · keine Originalmusik, keine echten Stimmen",
+    center_text(d, "Fan-Trailer · fiktive Szenen und Dialoge · nicht autorisiert · keine Originalmusik · keine echten Stimmen",
                 font(SANS, 52), 1760, (120, 115, 110))
     return img
 
 
 CARDS = {
     "no_plan": lambda: card_text([("ER HATTE KEINEN PLAN.", 300, BEBAS, None, 24)]),
+    "piano": lambda: card_text([("KLAVIER", 520, BEBAS, (15, 12, 10), 30)], bg=(232, 222, 200), texture=True),
     "sax": lambda: card_text([("SAXOFON", 520, BEBAS, (20, 10, 5), 30)], bg=(214, 150, 40), texture=True),
     "drums": lambda: card_text([("SCHLAGZEUG", 520, BEBAS, (240, 230, 220), 30)], bg=(150, 20, 28), texture=True),
     "guitar": lambda: card_text([("GITARRE", 520, BEBAS, (10, 20, 24), 30)], bg=(40, 150, 160), texture=True),
