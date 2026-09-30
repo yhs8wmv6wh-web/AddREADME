@@ -297,7 +297,12 @@ export function canonicalTerm(term, vocab) {
 }
 
 export function vocabulary(ratings, extra) {
-  const v = { ...DEFAULT_VOCAB, ...(extra || {}) };
+  const v = { ...DEFAULT_VOCAB };
+  // Zusätzliche Begriffe (vom Lauf) nur, wenn sie kein vorhandenes Stichwort doppeln.
+  for (const [t, w] of Object.entries(extra || {})) {
+    const c = canonicalTerm(t, v);
+    if (!Object.keys(v).some((k) => stem(k) === c)) v[c] = w;
+  }
   for (const r of ratings || []) {
     const p = parseFreitext(r.freitext);
     for (const t of [...p.plus, ...p.minus]) {
