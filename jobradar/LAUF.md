@@ -52,5 +52,5 @@ Diese Datei steuert den automatischen Lauf. Sie wird von der Routine „Jobradar
 
 ## E. Abschluss
 19. `laeufe/$LAUF` per `update`: `{ende, status: "ok" | "teilweise" | "fehler", bewertungen_verarbeitet: [IDs], feedback_fehler: null oder Text, quellen_nicht_erreichbar, neue_stellen: n, abgelaufen: n, suchbegriffe: [...], zusammenfassung}`. `teilweise`, wenn Quellen fehlten oder Feedback nicht verarbeitet wurde.
-20. Spiegel im Repo: `ArtifactData get profil/aktuell` mit `out_dir: $EX`, dann `node jobradar/radar.mjs profilmd $EX jobradar/daten/profil.md`; an `jobradar/daten/lauf-log.md` oben einen Abschnitt `## $LAUF` mit der Zusammenfassung und dem Protokolltext anfügen. Commit „Jobradar-Lauf $LAUF“ und `git push origin HEAD:claude/jobradar`. Ergebnis in `laeufe/$LAUF.repo_spiegel` festhalten: `"gepusht <commit>"` oder den genauen Fehler (auch wenn das Repo nicht ausgecheckt ist). Kein Abbruch.
+20. Kein Repo-Spiegel: Die Laufsitzung hat keine Schreibrechte auf das Repo. Profil und Protokoll liegen vollständig in der Datenbank der Seite. Nichts committen oder pushen.
 21. Antworte am Ende mit 3–5 Zeilen: neue Stellen, gelernte Änderungen, nicht erreichbare Quellen, Fehler.

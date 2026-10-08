@@ -44,7 +44,7 @@ Reiter „Änderungsprotokoll“: jede Bewertung und jeder Lauf mit den Änderun
 
 ## Profil bearbeiten
 
-Im Reiter „Was das Radar gelernt hat“ → „Profil bearbeiten“. Deine Fassung hat Vorrang: Der nächste Lauf nimmt sie als Grundlage und ergänzt nur. Ein gespiegelter Stand liegt nach jedem Lauf in `daten/profil.md` (Branch `claude/jobradar`), dort nur zum Lesen, Änderungen bitte auf der Seite.
+Im Reiter „Was das Radar gelernt hat“ → „Profil bearbeiten“. Deine Fassung hat Vorrang: Der nächste Lauf nimmt sie als Grundlage und ergänzt nur.
 
 ## Zeitplan
 
@@ -52,7 +52,7 @@ Im Reiter „Was das Radar gelernt hat“ → „Profil bearbeiten“. Deine Fas
 - **Ist dein Handy aus, passiert nichts Schlimmes**: Der Lauf läuft in der Cloud, nicht auf deinem Gerät.
 - **Fällt ein Lauf aus** (Störung), verarbeitet der nächste Lauf alle Bewertungen seitdem mit, denn er nimmt jede Bewertung ohne Vermerk „verarbeitet“. Die Seite warnt, wenn ein Werktagslauf fehlt. Mit „Suchlauf jetzt starten“ oben auf der Seite holst du ihn sofort nach.
 - Uhrzeit ändern: in claude.ai unter Code → Routines die Routine „Jobradar Morgenlauf“ öffnen, oder Claude bitten („verschiebe den Jobradar-Lauf auf 6 Uhr“).
-- Protokoll: Reiter „Änderungsprotokoll“ (Läufe) und `daten/lauf-log.md`.
+- Protokoll: Reiter „Änderungsprotokoll“ (Läufe).
 
 ## Die Formel
 
