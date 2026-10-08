@@ -17,7 +17,17 @@ Du hast keinen eigenen Rechner im Spiel, deshalb läuft alles in der Cloud:
 | Morgenlauf | Claude-Code-Routine „Jobradar Morgenlauf“ | liest Feedback, schreibt Profil fort, sucht, prüft Links, markiert Abgelaufenes |
 | Code | dieser Ordner im Repo | `engine.js` (Lernen und Bewertung, von Seite und Lauf gemeinsam genutzt), `radar.mjs` (Werkzeug für den Lauf), `LAUF.md` (Ablauf des Laufs) |
 
-## Bewerten
+## Entdecken (Wischen)
+
+Startansicht: immer eine Stelle als Karte, die passendste unbewertete zuerst.
+- **Nach rechts wischen** oder „Interessant →“: Es folgt „Was spricht dafür?“ mit Abstufung (interessant = Note 4, genau das = Note 5), positiven Gründen und Freitext. Die Stelle bekommt den Status „interessant“.
+- **Nach links wischen** oder „← Nicht passend“: Es folgt „Woran lag es?“ mit Abstufung (eher nicht = Note 2, gar nicht = Note 1), negativen Gründen und Freitext. Die Stelle bekommt den Status „abgelehnt“.
+- Gründe und Freitext sind freiwillig, machen das Lernen aber deutlich genauer. „Zurück zur Karte“ nimmt einen versehentlichen Wisch zurück.
+- Am Computer gehen auch die Pfeiltasten links/rechts.
+
+Bewertete Stellen findest du im Reiter „Liste“, dort lassen sich Note und Status jederzeit ändern.
+
+## Bewerten in der Liste
 
 „Bewerten“ an einer Stelle antippen:
 1. **Note 1–5** (5 = genau das, 1 = völlig daneben).
