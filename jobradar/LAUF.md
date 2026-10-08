@@ -37,10 +37,16 @@ Diese Datei steuert den automatischen Lauf. Sie wird von der Routine „Jobradar
 10. Scheitert einer der Schritte 3–9, schreibe den Grund in `laeufe/$LAUF.feedback_fehler` und mache mit der Suche auf Basis des alten Profils weiter.
 
 ## C. Suche
-11. Suchbegriffe und Quellen stammen aus `profil/aktuell` (nach Schritt 5). Suche mit `WebSearch` (Begriff + „Berlin“ bzw. Quelle + Begriff) und rufe Quellen-Übersichtsseiten mit `WebFetch` auf. Beachte harte Regeln (keine Stellen, die eine aktive Ausschlussregel treffen).
+11. **Gründlich suchen, nicht stichprobenartig.** Die Quellen stehen mit geprüften URLs in `jobradar/quellen.json`; dazu kommen Quellen aus `profil/aktuell.quellen`. Pflicht in jedem Lauf:
+   - **Jede** Quelle mit `status: "ok"` aufrufen (curl `-sL -A 'Mozilla/5.0 (Macintosh)'` oder `WebFetch`) und alle dort gelisteten Stellen sichten, die Berlin oder remote betreffen. Bei Jobbörsen die Berlin-/Suchfilter nutzen.
+   - Zusätzlich je Suchbegriff aus `profil/aktuell.suchbegriffe` eine `WebSearch` (Begriff + „Berlin Stelle“) und eine StepStone-Suche.
+   - Pro Quelle in `laeufe/$LAUF.quellen_geprueft` notieren: `{name, gesichtet: <Anzahl Stellen>, passend: <Anzahl Kandidaten>}`.
+   - Ein Lauf, der weniger als 80 % der ok-Quellen geprüft hat, ist `teilweise` und nennt die fehlenden.
+   Beachte harte Regeln (keine Stellen, die eine aktive Ausschlussregel treffen).
+   Eine Stelle ist Kandidat, wenn sie zum Profil passen **könnte** (Bereich, Ort, Berufserfahrung). Im Zweifel aufnehmen: Der Passungswert sortiert, und die Bewertungen der Nutzerin lehren das Radar. Nicht aufnehmen: Praktika, Volontariate, Werkstudentenstellen, Trainee.
 12. **Jede Anzeige selbst öffnen** (`WebFetch` auf die Anzeigen-URL). Nur wenn die Anzeige lädt und aktiv ist: `url_status: "ok"`, `geprueft: <heute>`. Sonst nicht aufnehmen.
 13. **Nicht erreichbare Quellen** (Fehler, 403, EGRESS_BLOCKED, Login-Wall) in `quellen_nicht_erreichbar: [{name, grund}]` notieren. Nicht auf Umwege ausweichen (keine Caches, Spiegel oder Kopien der Anzeige auf anderen Portalen als Ersatz für eine gesperrte Quelle).
-14. Nicht aufnehmen: Frist vorbei; Arbeitgeber mit erkennbar nicht demokratisch-konstruktiver Haltung (im Laufbericht nennen); offensichtlich reine SEO-, Social-Media- oder Boulevardstellen. Höchstens 25 neue Stellen pro Lauf, die passendsten zuerst.
+14. Nicht aufnehmen: Frist vorbei; Arbeitgeber mit erkennbar nicht demokratisch-konstruktiver Haltung (im Laufbericht nennen); offensichtlich reine SEO-, Social-Media- oder Boulevardstellen. Höchstens 30 neue Stellen pro Lauf, die passendsten zuerst.
 15. Kandidaten als JSON-Array in `$EX/kandidaten.json`, pro Stelle:
    `titel, arbeitgeber, ort, arbeitsweise (remote|hybrid|praesenz|unklar), modell (Festanstellung|frei), umfang, befristet (ja|nein|unklar), gehalt (Text der Anzeige oder "keine Angabe"), gehalt_monat_min, gehalt_monat_max (brutto/Monat für den angebotenen Umfang), gehalt_schaetzung (true/false), gehalt_basis (Begründung; bei Schätzung Tarif/Branche nennen), frist (JJJJ-MM-TT oder null), url, kurz (1–2 Sätze nach der Anzeige), notiz, bereich, typ, agtyp, sprache (de|en), anforderungen (passt|hoch|fremd), quelle, url_status: "ok", geprueft`.
    Werte für `bereich`, `typ`, `agtyp` nur aus `jobradar/engine.js` (BEREICHE, TYPEN, AGTYPEN).
