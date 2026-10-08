@@ -1,0 +1,622 @@
+<title>Jobradar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,650&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: eine Lesespalte, Karten nur für Stellen; Kopf mit Reitern, Warnungen ganz oben. */
+:root {
+  --bg: #eef0ec; --surface: #fbfcfa; --fg: #1c2420; --muted: #5a6760; --line: #d4dad4;
+  --accent: #2b5a86; --accent-soft: #dde7f1; --pos: #2c7a4c; --pos-soft: #e0efe5;
+  --neg: #a8403b; --neg-soft: #f5e2e0; --warn: #8a5a00; --warn-soft: #f7ebcf;
+  --display: "Literata", Georgia, "Times New Roman", serif;
+  --body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --r: 6px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #151a18; --surface: #1d2421; --fg: #e4e9e5; --muted: #9aa69f; --line: #323c37;
+  --accent: #8fb6dc; --accent-soft: #23313e; --pos: #7cc79a; --pos-soft: #1e3227;
+  --neg: #e79a93; --neg-soft: #3a2422; --warn: #e6bd6a; --warn-soft: #3a2f16; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #151a18; --surface: #1d2421; --fg: #e4e9e5; --muted: #9aa69f; --line: #323c37;
+  --accent: #8fb6dc; --accent-soft: #23313e; --pos: #7cc79a; --pos-soft: #1e3227;
+  --neg: #e79a93; --neg-soft: #3a2422; --warn: #e6bd6a; --warn-soft: #3a2f16; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 var(--body); margin: 0 }
+.wrap { max-width: 860px; margin: 0 auto; padding-inline: 16px; padding-block: 16px 64px }
+h1, h2, h3 { font-family: var(--display); font-weight: 650; text-wrap: balance; margin: 0 }
+h1 { font-size: 1.75rem; letter-spacing: -0.01em }
+h2 { font-size: 1.25rem; margin-block: 28px 10px }
+h3 { font-size: 1.08rem; line-height: 1.3 }
+a { color: var(--accent) }
+button, select, textarea, input { font: inherit; color: inherit }
+button { cursor: pointer; border: 1px solid var(--line); background: var(--surface); border-radius: var(--r); padding: 6px 12px }
+button:hover { border-color: var(--accent) }
+button.primary { background: var(--accent); color: var(--surface); border-color: var(--accent) }
+button:focus-visible, select:focus-visible, textarea:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px }
+select, input[type=text], textarea { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 6px 8px }
+textarea { width: 100%; min-height: 70px; resize: vertical }
+.muted { color: var(--muted) }
+.small { font-size: .86rem }
+.head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: end; justify-content: space-between }
+.head p { margin: 2px 0 0 }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-block: 16px 14px; overflow-x: auto }
+.tabs button { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 8px 10px; color: var(--muted); white-space: nowrap }
+.tabs button[aria-selected=true] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600 }
+.banner { border-radius: var(--r); padding: 10px 12px; margin-block: 10px; background: var(--warn-soft); color: var(--fg); border: 1px solid var(--warn) }
+.banner strong { color: var(--warn) }
+.banner.info { background: var(--accent-soft); border-color: var(--accent) }
+.banner.info strong { color: var(--accent) }
+.filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 12px }
+.chip { border-radius: 999px; padding: 3px 10px; font-size: .86rem }
+.chip[aria-pressed=true] { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); font-weight: 600 }
+.list { display: grid; gap: 12px }
+.job { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; display: grid; grid-template-columns: 58px 1fr; gap: 4px 14px }
+.job.soon { border-color: var(--warn); box-shadow: inset 3px 0 0 var(--warn) }
+.job.pinned { box-shadow: inset 3px 0 0 var(--accent) }
+.score { grid-row: span 2; text-align: center }
+.score b { display: block; font-family: var(--display); font-size: 1.7rem; line-height: 1.1; font-variant-numeric: tabular-nums }
+.score .bar { height: 4px; background: var(--line); border-radius: 2px; margin-top: 4px; overflow: hidden }
+.score .bar i { display: block; height: 100% ; background: var(--accent) }
+.score small { color: var(--muted); font-size: .72rem; letter-spacing: .04em; text-transform: uppercase }
+.body { min-width: 0 }
+.emp { color: var(--muted); margin-top: 2px }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: .88rem }
+.meta span { white-space: nowrap }
+.est { color: var(--warn); font-size: .8rem }
+.frist-soon { color: var(--warn); font-weight: 600 }
+.kurz { margin: 8px 0 0 }
+.why { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; padding: 0; list-style: none }
+.why li { font-size: .8rem; border-radius: 4px; padding: 1px 7px; font-variant-numeric: tabular-nums }
+.why .p { background: var(--pos-soft); color: var(--pos) }
+.why .n { background: var(--neg-soft); color: var(--neg) }
+.foot { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line) }
+.foot .sp { flex: 1 }
+.tag { font-size: .78rem; border-radius: 4px; padding: 1px 7px; background: var(--accent-soft); color: var(--accent) }
+.tag.neg { background: var(--neg-soft); color: var(--neg) }
+.tag.warn { background: var(--warn-soft); color: var(--warn) }
+.rate { grid-column: 1 / -1; display: grid; gap: 10px; margin-top: 10px; padding: 12px; background: var(--bg); border-radius: var(--r) }
+.notes { display: flex; gap: 6px; flex-wrap: wrap }
+.notes button { width: 44px; font-family: var(--display); font-size: 1.1rem; font-variant-numeric: tabular-nums }
+.notes button[aria-pressed=true] { background: var(--accent); color: var(--surface); border-color: var(--accent) }
+.reasons { display: flex; flex-wrap: wrap; gap: 6px }
+.reasons button[aria-pressed=true].p { background: var(--pos-soft); border-color: var(--pos); color: var(--pos) }
+.reasons button[aria-pressed=true].n { background: var(--neg-soft); border-color: var(--neg); color: var(--neg) }
+.lbl { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted) }
+.rated { font-size: .88rem }
+details.hidden-jobs { margin-top: 18px }
+details summary { cursor: pointer; color: var(--muted) }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 18px }
+@media (max-width: 640px) { .two { grid-template-columns: 1fr } }
+table { border-collapse: collapse; width: 100%; font-size: .9rem; font-variant-numeric: tabular-nums }
+th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font-weight: 600; color: var(--muted); font-size: .78rem; text-transform: uppercase; letter-spacing: .05em }
+td.num { text-align: right; white-space: nowrap }
+.tw { overflow-x: auto }
+.pos { color: var(--pos) } .neg { color: var(--neg) }
+.rules { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px }
+.rules li { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 8px 10px }
+.rules li .sp { flex: 1; min-width: 0 }
+pre.profil { white-space: pre-wrap; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; font: .9rem/1.5 var(--body); margin: 0 }
+.log { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px }
+.log li { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 10px 12px }
+.log time { color: var(--muted); font-size: .8rem; font-variant-numeric: tabular-nums }
+.log .art { font-size: .74rem; text-transform: uppercase; letter-spacing: .06em; margin-left: 6px; color: var(--accent) }
+.log p { margin: 4px 0 0; white-space: pre-wrap }
+.empty { background: var(--surface); border: 1px dashed var(--line); border-radius: var(--r); padding: 18px; color: var(--muted) }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center }
+@media (prefers-reduced-motion: no-preference) { .job { transition: border-color .2s } }
+/* Entdecken: eine Karte, wischen oder Knöpfe */
+.deck-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px }
+.deck { position: relative; touch-action: pan-y; user-select: none; -webkit-user-select: none }
+.swipe-card { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; grid-template-columns: 58px 1fr; gap: 4px 14px; will-change: transform; touch-action: pan-y }
+.swipe-card.soon { border-color: var(--warn) }
+.swipe-card.fly { transition: transform .25s ease-out, opacity .25s ease-out }
+.stamp { position: absolute; top: 14px; padding: 4px 10px; border: 2px solid; border-radius: 6px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; font-size: .8rem; opacity: 0; pointer-events: none; background: var(--surface) }
+.stamp.yes { right: 14px; color: var(--pos); border-color: var(--pos) }
+.stamp.no { left: 14px; color: var(--neg); border-color: var(--neg) }
+.decide { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px }
+.decide button { padding: 14px 10px; font-size: 1rem; font-weight: 600; border-radius: 10px }
+.decide .no { color: var(--neg); border-color: var(--neg); background: var(--neg-soft) }
+.decide .yes { color: var(--pos); border-color: var(--pos); background: var(--pos-soft) }
+.sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 14px }
+.sheet.no { box-shadow: inset 0 4px 0 var(--neg) }
+.sheet.yes { box-shadow: inset 0 4px 0 var(--pos) }
+.sheet h2 { margin: 0 }
+.grade { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+.grade button { padding: 10px; border-radius: 8px }
+.grade button[aria-pressed=true] { background: var(--accent); color: var(--surface); border-color: var(--accent); font-weight: 600 }
+.hint { font-size: .8rem; color: var(--muted); text-align: center; margin-top: 8px }
+@media (prefers-reduced-motion: reduce) { .swipe-card.fly { transition: none } }
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <div>
+      <h1>Jobradar</h1>
+      <p class="muted small" id="sub">Lädt Daten …</p>
+    </div>
+    <div class="row">
+      <button id="runNow" hidden>Suchlauf jetzt starten</button>
+    </div>
+  </header>
+  <div id="banners"></div>
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="entdecken" aria-selected="true">Entdecken</button>
+    <button role="tab" data-tab="treffer" aria-selected="false">Liste</button>
+    <button role="tab" data-tab="gelernt" aria-selected="false">Was das Radar gelernt hat</button>
+    <button role="tab" data-tab="protokoll" aria-selected="false">Änderungsprotokoll</button>
+  </nav>
+  <main id="main"><div class="empty">Die Stellen kommen aus der Datenbank dieser Seite. Sobald sie geladen ist, erscheinen hier die Treffer, sortiert nach Passungswert.</div></main>
+</div>
+
+<script>
+/*__ENGINE__*/
+
+// ---------------- Zustand ----------------
+const S = {
+  db: null, mcp: null, ready: false, readonly: false,
+  jobs: {}, ratings: {}, rules: {}, log: [], runs: [],
+  profil: null, customReasons: [], lauf: null, priors: {}, vocabExtra: {},
+};
+const UI = { tab: "entdecken", swipe: null, filter: "aktuell", bereich: "", open: null, drafts: {}, editProfil: false, msg: "", newReason: false };
+try { const t = localStorage.getItem("jr-tab"); if (t) UI.tab = t; } catch {}
+
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+const today = () => new Date().toISOString().slice(0, 10);
+const dt = (iso) => { if (!iso) return "–"; const d = new Date(iso); return d.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) + " " + d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" }); };
+const dDate = (s) => s ? new Date(s + "T00:00:00").toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "keine Angabe";
+const euro = (n) => Math.round(n).toLocaleString("de-DE") + " €";
+
+function reasons() { return [...DEFAULT_REASONS, ...S.customReasons]; }
+function model(ratingsOverride) {
+  return buildModel({
+    jobs: Object.values(S.jobs),
+    ratings: ratingsOverride || Object.values(S.ratings),
+    reasons: reasons(), priors: S.priors, vocabExtra: S.vocabExtra,
+  });
+}
+function rules() { return Object.values(S.rules).filter((r) => r.aktiv !== false); }
+
+// ---------------- Datenbank ----------------
+async function init() {
+  S.db = await claude.use("db");
+  if (!S.db) { $("#sub").textContent = "Keine Datenbank verfügbar. Bitte in claude.ai angemeldet öffnen."; return; }
+  const coll = (name, fn, q) => (q || S.db.collection(name)).onSnapshot(fn, (e) => showError(name, e));
+  coll("jobs", (s) => { S.jobs = Object.fromEntries(s.docs.map((d) => [d.id, { ...d.data(), id: d.id }])); S.ready = true; render(); });
+  coll("ratings", (s) => { S.ratings = Object.fromEntries(s.docs.map((d) => [d.id, { ...d.data(), id: d.id }])); render(); });
+  coll("rules", (s) => { S.rules = Object.fromEntries(s.docs.map((d) => [d.id, { ...d.data(), id: d.id }])); render(); });
+  coll("log", (s) => { S.log = s.docs.map((d) => ({ ...d.data(), _id: d.id })); render(); }, S.db.collection("log").orderBy("ts", "desc").limit(150));
+  coll("laeufe", (s) => { S.runs = s.docs.map((d) => ({ ...d.data(), id: d.id })); render(); }, S.db.collection("laeufe").orderBy("start", "desc").limit(20));
+  const doc = (p, fn) => S.db.doc(p).onSnapshot((d) => { fn(d.exists ? d.data() : null); render(); }, (e) => showError(p, e));
+  doc("profil/aktuell", (d) => (S.profil = d));
+  doc("config/gruende", (d) => (S.customReasons = (d && d.liste) || []));
+  doc("config/lauf", (d) => { S.lauf = d; setupRunButton(); });
+  doc("model/prioren", (d) => (S.priors = d || {}));
+  doc("model/vokabular", (d) => (S.vocabExtra = (d && d.terms) || {}));
+}
+function showError(what, e) { UI.msg = "Datenbankfehler bei " + what + ": " + (e && e.message ? e.message : e); render(); }
+
+async function write(fn) {
+  try { await fn(); UI.msg = ""; }
+  catch (e) {
+    if (e && e.code === "invalid_argument") { S.readonly = true; UI.msg = "Speichern nicht erlaubt (nur Lesezugriff)."; }
+    else UI.msg = "Speichern fehlgeschlagen: " + (e && e.message ? e.message : e) + ". Bitte noch einmal versuchen.";
+    render(); throw e;
+  }
+}
+
+async function addLog(entry) {
+  await S.db.collection("log").add({ ts: new Date().toISOString(), ...entry });
+}
+
+// ---------------- Aktionen ----------------
+async function saveRating(jobId, statusDanach) {
+  const job = S.jobs[jobId];
+  const d = UI.drafts[jobId];
+  if (!d || !d.note) { UI.msg = "Bitte zuerst eine Note von 1 bis 5 wählen."; render(); return; }
+  const before = model();
+  const rating = {
+    id: jobId, note: d.note, gruende: [...d.gruende], freitext: (d.freitext || "").trim(), ts: new Date().toISOString(),
+    verarbeitet_in: null,
+    job_snapshot: Object.fromEntries(Object.entries(job).filter(([k]) => !["status", "id"].includes(k))),
+  };
+  const others = Object.values(S.ratings).filter((r) => r.id !== jobId);
+  const after = model([...others, rating]);
+  const deltas = diffModels(before, after, { min: 0.05, limit: 8 }).map((x) => ({ f: x.f, label: labelFor(x.f, S.jobs), delta: Math.round(x.delta * 100) / 100 }));
+  const neueRegeln = rulesFromFreitext(rating.freitext, jobId, rating.ts).filter((r) => !S.rules[r.id]);
+  await write(async () => {
+    await S.db.doc("ratings/" + jobId).set(rating);
+    if (statusDanach && (job.status || "neu") !== statusDanach) await S.db.doc("jobs/" + jobId).update({ status: statusDanach, status_seit: rating.ts });
+    for (const r of neueRegeln) await S.db.doc("rules/" + r.id).set(r);
+    const gr = rating.gruende.map((g) => (reasons().find((r) => r.id === g) || {}).label).filter(Boolean);
+    let text = `${job.titel} (${job.arbeitgeber}): Note ${rating.note}` + (gr.length ? `, Gründe: ${gr.join(", ")}` : "") + (rating.freitext ? `, Freitext: „${rating.freitext}“` : "") + ".";
+    text += deltas.length ? "\nGelernt: " + deltas.map((x) => `${x.label} ${fmt(x.delta)}`).join(", ") + "." : "\nKeine Gewichtsänderung über 0,05.";
+    if (neueRegeln.length) text += "\nNeue Regel: " + neueRegeln.map((r) => (r.art === "ausschluss" ? "nie zeigen: " : "immer zeigen: ") + r.muster.join(", ")).join("; ") + ".";
+    await addLog({ art: "bewertung", text, bezug: [jobId], deltas, regeln: neueRegeln.map((r) => r.id) });
+  });
+  if (UI.swipe && UI.swipe.id === jobId) { UI.swipe = null; UI.newReason = false; }
+  delete UI.drafts[jobId];
+  UI.open = null;
+  render();
+}
+
+async function removeRating(jobId) {
+  const job = S.jobs[jobId] || S.ratings[jobId]?.job_snapshot || {};
+  const before = model();
+  const after = model(Object.values(S.ratings).filter((r) => r.id !== jobId));
+  const deltas = diffModels(before, after, { min: 0.05, limit: 8 }).map((x) => ({ f: x.f, label: labelFor(x.f, S.jobs), delta: Math.round(x.delta * 100) / 100 }));
+  await write(async () => {
+    await S.db.doc("ratings/" + jobId).delete();
+    await addLog({ art: "bewertung", text: `Bewertung entfernt: ${job.titel || jobId}.` + (deltas.length ? "\nZurückgenommen: " + deltas.map((x) => `${x.label} ${fmt(x.delta)}`).join(", ") + "." : ""), bezug: [jobId], deltas });
+  });
+  delete UI.drafts[jobId];
+  render();
+}
+
+async function setStatus(jobId, status) {
+  await write(() => S.db.doc("jobs/" + jobId).update({ status, status_seit: new Date().toISOString() }));
+}
+
+async function deleteRule(id) {
+  const r = S.rules[id];
+  await write(async () => {
+    // Deaktivieren statt löschen, damit der alte Freitext die Regel nicht neu erzeugt.
+    await S.db.doc("rules/" + id).update({ aktiv: false, geloescht: new Date().toISOString() });
+    await addLog({ art: "regel", text: `Regel gelöscht: ${r.art === "ausschluss" ? "nie zeigen" : "immer zeigen"}: ${(r.muster || []).join(", ")}.`, bezug: r.quelle?.bewertung ? [r.quelle.bewertung] : [] });
+  });
+}
+
+async function addRule(art, muster) {
+  const m = muster.split(",").map((s) => s.trim()).filter(Boolean);
+  if (!m.length) return;
+  const r = { id: art + "-" + slug(m.join(" ")), aktiv: true, art, muster: m, quelle: { text: "von Hand angelegt" }, erstellt: new Date().toISOString(), von: "du" };
+  await write(async () => {
+    await S.db.doc("rules/" + r.id).set(r);
+    await addLog({ art: "regel", text: `Regel angelegt: ${art === "ausschluss" ? "nie zeigen" : "immer zeigen"}: ${m.join(", ")}.` });
+  });
+}
+
+async function addReason(label, pol, ziele) {
+  if (!label.trim()) return;
+  const r = { id: "eigen-" + slug(label), label: label.trim(), pol, ziele };
+  await write(async () => {
+    await S.db.doc("config/gruende").set({ liste: [...S.customReasons.filter((x) => x.id !== r.id), r] });
+    await addLog({ art: "grund", text: `Neuer Grund: ${r.label} (${pol > 0 ? "positiv" : "negativ"}, wirkt auf ${ziele.map((z) => GROUP_LABELS[z]).join(", ")}).` });
+  });
+  UI.newReason = false;
+}
+
+async function saveProfil(text) {
+  const now = new Date().toISOString();
+  await write(async () => {
+    const ref = S.db.doc("profil/aktuell");
+    if (S.profil) await ref.update({ text, stand: now, von: "du", nutzer_stand: now, nutzer_version: text });
+    else await ref.set({ text, stand: now, von: "du", nutzer_stand: now, nutzer_version: text, suchbegriffe: [], quellen: [] });
+    await addLog({ art: "profil", text: "Profil von dir bearbeitet. Deine Fassung hat beim nächsten Lauf Vorrang." });
+  });
+  UI.editProfil = false;
+}
+
+async function setupRunButton() {
+  const b = $("#runNow");
+  if (!S.lauf || !S.lauf.trigger_id) { b.hidden = true; return; }
+  if (!S.mcp) S.mcp = await claude.use("mcp");
+  b.hidden = !S.mcp;
+}
+async function runNow() {
+  const b = $("#runNow");
+  b.disabled = true; b.textContent = "Wird gestartet …";
+  try {
+    await S.mcp.callTool("Claude Code Remote", "fire_trigger", { trigger_id: S.lauf.trigger_id, text: "Manuell über die Jobradar-Seite gestartet." });
+    b.textContent = "Lauf gestartet. Ergebnisse in etwa 15 Minuten.";
+  } catch (e) {
+    b.textContent = "Start fehlgeschlagen";
+    UI.msg = "Suchlauf konnte nicht gestartet werden: " + (e && e.message ? e.message : e && e.code); render();
+  }
+  setTimeout(() => { b.disabled = false; b.textContent = "Suchlauf jetzt starten"; }, 60000);
+}
+
+// ---------------- Darstellung ----------------
+function banners() {
+  const out = [];
+  if (UI.msg) out.push(`<div class="banner"><strong>Hinweis.</strong> ${esc(UI.msg)}</div>`);
+  const last = S.runs[0];
+  if (!S.ready) return out.join("");
+  if (!last) out.push(`<div class="banner info"><strong>Noch kein Suchlauf.</strong> Der erste automatische Lauf verarbeitet alle Bewertungen und aktualisiert das Profil.</div>`);
+  if (last) {
+    if (last.feedback_fehler) out.push(`<div class="banner"><strong>Feedback nicht verarbeitet.</strong> Der Lauf vom ${dt(last.start)} meldet: ${esc(last.feedback_fehler)}</div>`);
+    const offen = Object.values(S.ratings).filter((r) => !r.verarbeitet_in && r.ts < last.start);
+    if (offen.length) out.push(`<div class="banner"><strong>${offen.length} Bewertung${offen.length > 1 ? "en" : ""} vom letzten Lauf nicht verarbeitet.</strong> Betroffen: ${offen.map((r) => esc((S.jobs[r.id] || r.job_snapshot || {}).titel || r.id)).join(", ")}. Der nächste Lauf holt das nach; bleibt die Warnung, stimmt etwas mit dem Lauf nicht.</div>`);
+    if (last.status === "fehler") out.push(`<div class="banner"><strong>Letzter Lauf fehlgeschlagen.</strong> ${esc(last.zusammenfassung || "")}</div>`);
+    const age = (Date.now() - new Date(last.ende || last.start)) / 3600000;
+    const wd = new Date().getDay();
+    if (age > (wd === 1 ? 76 : 28) && wd >= 1 && wd <= 5 && new Date().getHours() >= 9) out.push(`<div class="banner"><strong>Lauf ausgeblieben.</strong> Letzter Lauf: ${dt(last.start)}. Der nächste Lauf verarbeitet alles seitdem mit.</div>`);
+    if ((last.quellen_nicht_erreichbar || []).length) out.push(`<div class="banner info"><strong>${last.quellen_nicht_erreichbar.length} Quellen waren beim letzten Lauf nicht erreichbar.</strong> Details im Änderungsprotokoll.</div>`);
+  }
+  return out.join("");
+}
+
+function gehaltText(j) {
+  const lo = j.gehalt_monat_min, hi = j.gehalt_monat_max;
+  const range = lo ? (hi && hi !== lo ? `${euro(lo)}–${euro(hi)}` : euro(lo)) + "/Monat" : "";
+  if (j.gehalt_schaetzung) return `${range ? range + " " : ""}<span class="est" title="${esc(j.gehalt_basis || "")}">Schätzung</span>`;
+  return esc(range || j.gehalt || "keine Angabe");
+}
+
+function jobCard({ job: j, score: s }) {
+  const f = fristInfo(j, today());
+  const r = S.ratings[j.id];
+  const open = UI.open === j.id;
+  const pinned = s.regel && s.regel.art === "immer";
+  const why = s.teile.slice(0, 7).map((t) => `<li class="${t.w > 0 ? "p" : "n"}">${t.w > 0 ? "+" : "−"} ${esc(labelFor(t.f, S.jobs))}</li>`).join("");
+  const tags = [];
+  if (pinned) tags.push(`<span class="tag">immer zeigen: ${esc(s.regel.muster.join(", "))}</span>`);
+  if (s.regel && s.regel.art === "ausschluss") tags.push(`<span class="tag neg">ausgeschlossen: ${esc(s.regel.muster.join(", "))}</span>`);
+  if (j.url_status === "ungeprueft") tags.push(`<span class="tag warn" title="Link noch nicht geöffnet und geprüft">Link ungeprüft</span>`);
+  if (j.url_status === "tot") tags.push(`<span class="tag neg">Anzeige nicht mehr erreichbar</span>`);
+  return `<article class="job${f.bald ? " soon" : ""}${pinned ? " pinned" : ""}" id="job-${esc(j.id)}">
+    <div class="score"><b>${s.wert}</b><div class="bar"><i style="width:${s.wert}%"></i></div><small>Passung</small></div>
+    ${jobBody(j, s, f, tags, why)}
+    <div class="foot">
+      <label class="small muted" for="st-${esc(j.id)}">Status</label>
+      <select id="st-${esc(j.id)}" data-status="${esc(j.id)}">${STATUS.map((x) => `<option value="${x}"${(j.status || "neu") === x ? " selected" : ""}>${STATUS_LABELS[x]}</option>`).join("")}</select>
+      <span class="sp"></span>
+      ${r ? `<span class="rated">Deine Note: <b>${r.note}</b></span>` : ""}
+      <button data-open="${esc(j.id)}" aria-expanded="${open}">${r ? "Bewertung ändern" : "Bewerten"}</button>
+    </div>
+    ${open ? ratePanel(j, r) : ""}
+  </article>`;
+}
+
+function jobBody(j, s, f, tags, why) {
+  return `<div class="body">
+      <h3><a href="${esc(j.url)}" target="_blank" rel="noopener">${esc(j.titel)}</a></h3>
+      <div class="emp">${esc(j.arbeitgeber)}</div>
+      <div class="meta">
+        <span>${esc(j.ort)}${j.arbeitsweise && j.arbeitsweise !== "unklar" ? ", " + esc(labelFor("arbeitsweise:" + j.arbeitsweise)) : ""}</span>
+        <span>${esc(j.modell || "")}${j.befristet === "ja" ? ", befristet" : j.befristet === "nein" ? ", unbefristet" : ""}</span>
+        <span>${esc(j.umfang || "")}</span>
+        <span>${gehaltText(j)}</span>
+        <span class="${f.bald ? "frist-soon" : ""}">Frist: ${dDate(j.frist)}${f.bald ? ` (in ${f.tage} Tag${f.tage === 1 ? "" : "en"})` : ""}${f.vorbei ? " (vorbei)" : ""}</span>
+      </div>
+      <p class="kurz">${esc(j.kurz || "")}</p>
+      <ul class="why" aria-label="Begründung des Passungswerts">${why}</ul>
+      ${tags.length ? `<div class="row" style="margin-top:8px">${tags.join("")}</div>` : ""}
+    </div>`;
+}
+
+function cardParts(j, s) {
+  const f = fristInfo(j, today());
+  const pinned = s.regel && s.regel.art === "immer";
+  const why = s.teile.slice(0, 7).map((t) => `<li class="${t.w > 0 ? "p" : "n"}">${t.w > 0 ? "+" : "−"} ${esc(labelFor(t.f, S.jobs))}</li>`).join("");
+  const tags = [];
+  if (pinned) tags.push(`<span class="tag">immer zeigen: ${esc(s.regel.muster.join(", "))}</span>`);
+  if (j.url_status === "ungeprueft") tags.push(`<span class="tag warn" title="Link noch nicht geöffnet und geprüft">Link ungeprüft</span>`);
+  return { f, why, tags };
+}
+
+// ---------------- Entdecken (Karten wischen) ----------------
+function deckQueue() {
+  const all = Object.values(S.jobs).filter((j) => (j.status || "neu") === "neu" && !S.ratings[j.id]);
+  return rank(all, model(), rules()).filter((x) => !(x.score.regel && x.score.regel.art === "ausschluss"));
+}
+
+function viewEntdecken() {
+  if (!S.ready) return `<div class="empty">Lädt …</div>`;
+  if (UI.swipe && S.jobs[UI.swipe.id] && UI.drafts[UI.swipe.id]) return swipeSheet(S.jobs[UI.swipe.id], UI.swipe.dir);
+  UI.swipe = null;
+  const q = deckQueue();
+  if (!q.length) return `<div class="empty">Alles bewertet. Neue Stellen bringt der nächste Morgenlauf. Bewertete Stellen findest du im Reiter „Liste“.</div>`;
+  const { job: j, score: s } = q[0];
+  const { f, why, tags } = cardParts(j, s);
+  return `<div class="deck-head"><span class="muted small">Noch ${q.length} unbewertete Stelle${q.length === 1 ? "" : "n"}, die passendste zuerst</span></div>
+    <div class="deck"><article class="swipe-card${f.bald ? " soon" : ""}" id="swipe" data-id="${esc(j.id)}">
+      <span class="stamp no" id="stamp-no">Nicht passend</span><span class="stamp yes" id="stamp-yes">Interessant</span>
+      <div class="score"><b>${s.wert}</b><div class="bar"><i style="width:${s.wert}%"></i></div><small>Passung</small></div>
+      ${jobBody(j, s, f, tags, why)}
+    </article></div>
+    <div class="decide"><button class="no" data-decide="-1" data-id="${esc(j.id)}">← Nicht passend</button><button class="yes" data-decide="1" data-id="${esc(j.id)}">Interessant →</button></div>
+    <p class="hint">Karte nach links oder rechts wischen, oder die Knöpfe nutzen.</p>`;
+}
+
+function swipeSheet(j, dir) {
+  const d = UI.drafts[j.id];
+  const pos = dir > 0;
+  const grades = pos ? [[4, "interessant"], [5, "genau das"]] : [[2, "eher nicht"], [1, "gar nicht"]];
+  const rs = reasons().filter((r) => (pos ? r.pol > 0 : r.pol < 0));
+  return `<section class="sheet ${pos ? "yes" : "no"}">
+    <div><div class="lbl">${pos ? "Interessant" : "Nicht passend"}</div><h2>${pos ? "Was spricht dafür?" : "Woran lag es?"}</h2>
+      <div class="muted small">${esc(j.titel)} · ${esc(j.arbeitgeber)}</div></div>
+    <div><div class="lbl">Wie sehr?</div><div class="grade">${grades.map(([n, l]) => `<button data-note="${n}" data-job="${esc(j.id)}" aria-pressed="${d.note === n}">${l}</button>`).join("")}</div></div>
+    <div><div class="lbl">Gründe (mehrere möglich, freiwillig)</div><div class="reasons">${rs.map((x) => `<button data-reason="${esc(x.id)}" data-job="${esc(j.id)}" class="chip ${pos ? "p" : "n"}" aria-pressed="${d.gruende.has(x.id)}">${esc(x.label)}</button>`).join("")}
+      <button class="chip" data-newreason="1">Neuer Grund …</button></div></div>
+    ${UI.newReason ? `<div class="row small"><input type="text" id="nr-label" placeholder="z. B. zu viel Reisetätigkeit">
+      <input type="hidden" id="nr-pol" value="${pos ? 1 : -1}">
+      <select id="nr-ziel">${Object.entries(GROUP_LABELS).map(([k, v]) => `<option value="${k}">wirkt auf ${v}</option>`).join("")}</select>
+      <button data-savereason="1">Grund anlegen</button></div>` : ""}
+    <div><label class="lbl" for="ft-${esc(j.id)}">Freitext (freiwillig)</label>
+      <textarea id="ft-${esc(j.id)}" data-freitext="${esc(j.id)}" placeholder="${pos ? "z. B. „mehr Dramaturgie“, „Correctiv immer zeigen“" : "z. B. „kein Kinderbuch“, „weniger Verbandskommunikation“"}">${esc(d.freitext)}</textarea></div>
+    <div class="row"><button class="primary" data-swipesave="${esc(j.id)}">Speichern und weiter</button><button data-swipeback="1">Zurück zur Karte</button></div>
+  </section>`;
+}
+
+function decide(id, dir) {
+  UI.swipe = { id, dir };
+  UI.drafts[id] = { note: dir > 0 ? 4 : 2, gruende: new Set(), freitext: "" };
+  UI.newReason = false;
+  render();
+  window.scrollTo({ top: 0 });
+}
+
+// Wischgeste: Karte folgt dem Finger, ab 90 px (oder schnellem Wisch) gilt die Entscheidung.
+let drag = null;
+document.addEventListener("pointerdown", (e) => {
+  const card = e.target.closest("#swipe");
+  if (!card || e.button > 0) return;
+  drag = { card, x0: e.clientX, y0: e.clientY, t0: Date.now(), dx: 0, moved: false, id: card.dataset.id, pid: e.pointerId };
+});
+document.addEventListener("pointermove", (e) => {
+  if (!drag || e.pointerId !== drag.pid) return;
+  const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+  if (!drag.moved && Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 8) { drag = null; return; }
+  if (Math.abs(dx) > 8) drag.moved = true;
+  if (!drag.moved) return;
+  drag.dx = dx;
+  drag.card.style.transform = `translateX(${dx}px) rotate(${dx / 25}deg)`;
+  const o = Math.min(1, Math.abs(dx) / 90);
+  $("#stamp-yes").style.opacity = dx > 0 ? o : 0;
+  $("#stamp-no").style.opacity = dx < 0 ? o : 0;
+});
+function endDrag(e) {
+  if (!drag || (e && e.pointerId !== drag.pid)) return;
+  const d = drag; drag = null;
+  if (!d.moved) return;
+  const fast = Math.abs(d.dx) > 40 && Date.now() - d.t0 < 250;
+  d.card.classList.add("fly");
+  if (Math.abs(d.dx) > 90 || fast) {
+    const dir = d.dx > 0 ? 1 : -1;
+    d.card.style.transform = `translateX(${dir * window.innerWidth}px) rotate(${dir * 20}deg)`;
+    d.card.style.opacity = "0";
+    d.card.dataset.swiped = "1";
+    setTimeout(() => decide(d.id, dir), 200);
+  } else {
+    d.card.style.transform = "";
+    $("#stamp-yes").style.opacity = 0; $("#stamp-no").style.opacity = 0;
+  }
+}
+document.addEventListener("pointerup", endDrag);
+document.addEventListener("pointercancel", endDrag);
+// Nach einem Wisch keinen Link öffnen
+document.addEventListener("click", (e) => { const c = e.target.closest("#swipe"); if (c && c.style.transform) { e.preventDefault(); e.stopPropagation(); } }, true);
+document.addEventListener("keydown", (e) => {
+  if (UI.tab !== "entdecken" || UI.swipe || /INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)) return;
+  const c = $("#swipe");
+  if (!c) return;
+  if (e.key === "ArrowRight") decide(c.dataset.id, 1);
+  else if (e.key === "ArrowLeft") decide(c.dataset.id, -1);
+});
+
+function ratePanel(j, r) {
+  const d = (UI.drafts[j.id] = UI.drafts[j.id] || { note: r?.note || 0, gruende: new Set(r?.gruende || []), freitext: r?.freitext || "" });
+  const btn = (x) => `<button data-reason="${esc(x.id)}" data-job="${esc(j.id)}" class="chip ${x.pol > 0 ? "p" : "n"}" aria-pressed="${d.gruende.has(x.id)}">${x.pol > 0 ? "+" : "−"} ${esc(x.label)}</button>`;
+  return `<div class="rate">
+    <div><div class="lbl">Note (5 = genau das, 1 = völlig daneben)</div>
+      <div class="notes">${[1, 2, 3, 4, 5].map((n) => `<button data-note="${n}" data-job="${esc(j.id)}" aria-pressed="${d.note === n}">${n}</button>`).join("")}</div></div>
+    <div><div class="lbl">Gründe (mehrere möglich)</div><div class="reasons">${reasons().map(btn).join("")}
+      <button class="chip" data-newreason="1">Neuer Grund …</button></div></div>
+    ${UI.newReason ? `<div class="row small"><input type="text" id="nr-label" placeholder="z. B. zu viel Reisetätigkeit">
+      <select id="nr-pol"><option value="-1">negativ</option><option value="1">positiv</option></select>
+      <select id="nr-ziel">${Object.entries(GROUP_LABELS).map(([k, v]) => `<option value="${k}">wirkt auf ${v}</option>`).join("")}</select>
+      <button data-savereason="1">Grund anlegen</button></div>` : ""}
+    <div><label class="lbl" for="ft-${esc(j.id)}">Freitext</label>
+      <textarea id="ft-${esc(j.id)}" data-freitext="${esc(j.id)}" placeholder="z. B. „kein Kinderbuch“, „mehr Dramaturgie“, „Correctiv gern immer zeigen“">${esc(d.freitext)}</textarea>
+      <div class="small muted">„kein X“ und „nie wieder X“ werden zu Ausschlussregeln, „X immer zeigen“ zu Immer-zeigen-Regeln, „mehr X“ und „weniger X“ verschieben Gewichte.</div></div>
+    <div class="row"><button class="primary" data-save="${esc(j.id)}">Bewertung speichern</button>
+      ${r ? `<button data-remove="${esc(j.id)}">Bewertung entfernen</button>` : ""}
+      <button data-open="${esc(j.id)}">Abbrechen</button></div>
+  </div>`;
+}
+
+function viewTreffer() {
+  const all = Object.values(S.jobs);
+  if (!S.ready) return `<div class="empty">Lädt …</div>`;
+  if (!all.length) return `<div class="empty">Noch keine Stellen gespeichert. Der tägliche Suchlauf trägt neue Treffer hier ein.</div>`;
+  const m = model();
+  const ranked = rank(all, m, rules());
+  const groups = { aktuell: ["neu", "interessant"], alle: STATUS };
+  const allowed = groups[UI.filter] || [UI.filter];
+  let list = ranked.filter((x) => allowed.includes(x.job.status || "neu"));
+  if (UI.bereich) list = list.filter((x) => x.job.bereich === UI.bereich);
+  const shown = list.filter((x) => !(x.score.regel && x.score.regel.art === "ausschluss"));
+  const hidden = list.filter((x) => x.score.regel && x.score.regel.art === "ausschluss");
+  const count = (st) => all.filter((j) => (groups[st] || [st]).includes(j.status || "neu")).length;
+  const chips = ["aktuell", ...STATUS, "alle"].map((st) => `<button class="chip" data-filter="${st}" aria-pressed="${UI.filter === st}">${st === "aktuell" ? "neu + interessant" : st === "alle" ? "alle" : STATUS_LABELS[st]} (${count(st)})</button>`).join("");
+  const bereiche = [...new Set(all.map((j) => j.bereich).filter(Boolean))];
+  return `<div class="filters">${chips}
+      <label class="small muted" for="bereich">Bereich</label>
+      <select id="bereich"><option value="">alle Bereiche</option>${bereiche.map((b) => `<option value="${b}"${UI.bereich === b ? " selected" : ""}>${esc(BEREICHE[b] || b)}</option>`).join("")}</select></div>
+    <div class="list">${shown.length ? shown.map(jobCard).join("") : `<div class="empty">Keine Stellen in dieser Auswahl.</div>`}</div>
+    ${hidden.length ? `<details class="hidden-jobs"><summary>${hidden.length} durch Regel ausgeblendet</summary><div class="list" style="margin-top:10px">${hidden.map(jobCard).join("")}</div></details>` : ""}`;
+}
+
+function viewGelernt() {
+  const m = model();
+  const ws = Object.entries(m.weights).map(([f, v]) => ({ f, ...v }));
+  const row = (x) => `<tr><td>${esc(labelFor(x.f, S.jobs))}<div class="small muted">${esc(GROUP_LABELS[groupOf(x.f)] || "")}${x.n ? `, aus ${x.n} Bewertung${x.n > 1 ? "en" : ""}` : ""}</div></td><td class="num muted">${fmt(x.w0)}</td><td class="num ${x.adj > 0 ? "pos" : x.adj < 0 ? "neg" : "muted"}">${x.adj ? fmt(x.adj) : "–"}</td><td class="num"><b>${fmt(x.w)}</b></td></tr>`;
+  const table = (arr) => `<div class="tw"><table><thead><tr><th>Merkmal</th><th class="num">Start</th><th class="num">gelernt</th><th class="num">jetzt</th></tr></thead><tbody>${arr.map(row).join("")}</tbody></table></div>`;
+  const pos = ws.filter((x) => x.w > 0).sort((a, b) => b.w - a.w).slice(0, 10);
+  const neg = ws.filter((x) => x.w < 0).sort((a, b) => a.w - b.w).slice(0, 10);
+  const learned = ws.filter((x) => Math.abs(x.adj) >= 0.05).sort((a, b) => Math.abs(b.adj) - Math.abs(a.adj)).slice(0, 15);
+  const nRat = Object.keys(S.ratings).length;
+  const rl = rules().sort((a, b) => (b.erstellt || "").localeCompare(a.erstellt || ""));
+  const ruleLi = (r) => { const q = r.quelle?.bewertung ? (S.jobs[r.quelle.bewertung]?.titel || r.quelle.bewertung) : null; const hits = Object.values(S.jobs).filter((j) => ruleMatches(r, j)).length;
+    return `<li><span class="tag${r.art === "ausschluss" ? " neg" : ""}">${r.art === "ausschluss" ? "nie zeigen" : "immer zeigen"}</span><span class="sp"><b>${esc((r.muster || []).join(", "))}</b> <span class="small muted">trifft ${hits} Stelle${hits === 1 ? "" : "n"}; ${q ? `aus Bewertung „${esc(q)}“` : esc(r.quelle?.text || "")}${r.quelle?.text && q ? `: „${esc(r.quelle.text)}“` : ""}; von ${r.von === "lauf" ? "Claude (Lauf)" : r.von === "du" ? "dir" : "der Seite"}</span></span><button data-delrule="${esc(r.id)}">Löschen</button></li>`; };
+  const p = S.profil;
+  return `<p class="muted">${nRat} Bewertung${nRat === 1 ? "" : "en"} fließen in die Gewichte ein. Die Liste wird nach jeder Bewertung sofort neu sortiert.</p>
+    <h2>Zuletzt durch deine Bewertungen verschoben</h2>
+    ${learned.length ? table(learned) : `<div class="empty">Noch nichts gelernt. Bewerte eine Stelle, dann erscheinen hier die veränderten Gewichte mit Herkunft.</div>`}
+    <div class="two"><div><h2>Stärkste positive Merkmale</h2>${table(pos)}</div><div><h2>Stärkste negative Merkmale</h2>${table(neg)}</div></div>
+    <h2>Harte Regeln</h2>
+    ${rl.length ? `<ul class="rules">${rl.map(ruleLi).join("")}</ul>` : `<div class="empty">Keine Regeln. Sie entstehen aus Freitext wie „kein Kinderbuch“ oder „Correctiv immer zeigen“, oder hier von Hand.</div>`}
+    <div class="row small" style="margin-top:10px"><select id="rule-art"><option value="ausschluss">nie zeigen</option><option value="immer">immer zeigen</option></select>
+      <input type="text" id="rule-muster" placeholder="Begriff(e), durch Komma getrennt"><button data-addrule="1">Regel anlegen</button></div>
+    <h2>Präferenzprofil (profil.md)</h2>
+    <p class="small muted">${p ? `Stand ${dt(p.stand)}, zuletzt von ${p.von === "du" ? "dir" : "Claude im Lauf"} geändert.` : "Noch kein Profil gespeichert."} Deine Änderungen haben beim nächsten Lauf Vorrang.</p>
+    ${UI.editProfil ? `<textarea id="profil-text" style="min-height:360px">${esc(p?.text || "")}</textarea><div class="row" style="margin-top:8px"><button class="primary" data-saveprofil="1">Profil speichern</button><button data-editprofil="0">Abbrechen</button></div>`
+      : `<pre class="profil">${esc(p?.text || "Noch leer.")}</pre><div class="row" style="margin-top:8px"><button data-editprofil="1">Profil bearbeiten</button></div>`}
+    ${p && (p.suchbegriffe || []).length ? `<h2>Suchbegriffe für den nächsten Lauf</h2><p>${p.suchbegriffe.map(esc).join(" · ")}</p>` : ""}
+    ${p && (p.quellen || []).length ? `<h2>Quellen</h2><p class="small">${p.quellen.map((q) => esc(typeof q === "string" ? q : q.name)).join(" · ")}</p>` : ""}`;
+}
+
+function viewProtokoll() {
+  const runs = S.runs.map((r) => `<li><time>${dt(r.start)}</time><span class="art">Lauf ${esc(r.status || "")}</span>
+      <p>${esc(r.zusammenfassung || "")}</p>
+      ${(r.quellen_nicht_erreichbar || []).length ? `<p class="small muted">Nicht erreichbar: ${r.quellen_nicht_erreichbar.map((q) => esc(q.name + (q.grund ? " (" + q.grund + ")" : ""))).join(", ")}</p>` : ""}</li>`).join("");
+  const log = S.log.map((l) => `<li><time>${dt(l.ts)}</time><span class="art">${esc(l.art)}</span><p>${esc(l.text)}</p></li>`).join("");
+  return `<h2>Einträge</h2>${log ? `<ul class="log">${log}</ul>` : `<div class="empty">Noch keine Einträge. Jede Bewertung und jeder Lauf schreibt hier hinein, was sich geändert hat.</div>`}
+    <h2>Läufe</h2>${runs ? `<ul class="log">${runs}</ul>` : `<div class="empty">Noch kein Lauf.</div>`}`;
+}
+
+function render() {
+  const n = Object.values(S.jobs).filter((j) => (j.status || "neu") === "neu").length;
+  const last = S.runs[0];
+  $("#sub").textContent = S.ready ? `${n} neue Stelle${n === 1 ? "" : "n"} · letzter Suchlauf: ${last ? dt(last.start) : "noch keiner"}` : "Lädt Daten …";
+  $("#banners").innerHTML = banners();
+  document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === UI.tab)));
+  const active = document.activeElement && document.activeElement.id;
+  $("#main").innerHTML = UI.tab === "entdecken" ? viewEntdecken() : UI.tab === "treffer" ? viewTreffer() : UI.tab === "gelernt" ? viewGelernt() : viewProtokoll();
+  if (active && document.getElementById(active) && /^(ft-|profil-text|rule-muster|nr-label)/.test(active)) document.getElementById(active).focus();
+}
+
+// ---------------- Ereignisse ----------------
+document.addEventListener("click", async (e) => {
+  const t = e.target.closest("button");
+  if (!t) return;
+  const ds = t.dataset;
+  if (ds.tab) { UI.tab = ds.tab; try { localStorage.setItem("jr-tab", UI.tab); } catch {} render(); }
+  else if (ds.filter) { UI.filter = ds.filter; render(); }
+  else if (ds.open) { UI.open = UI.open === ds.open ? null : ds.open; UI.newReason = false; render(); }
+  else if (ds.note) { UI.drafts[ds.job].note = Number(ds.note); render(); }
+  else if (ds.reason) { const g = UI.drafts[ds.job].gruende; g.has(ds.reason) ? g.delete(ds.reason) : g.add(ds.reason); render(); }
+  else if (ds.decide) { decide(ds.id, Number(ds.decide)); }
+  else if (ds.swipeback) { delete UI.drafts[UI.swipe.id]; UI.swipe = null; UI.newReason = false; render(); }
+  else if (ds.swipesave) { t.disabled = true; const dir = UI.swipe.dir; try { await saveRating(ds.swipesave, dir > 0 ? "interessant" : "abgelehnt"); } catch { t.disabled = false; } }
+  else if (ds.save) { t.disabled = true; try { await saveRating(ds.save); } catch {} }
+  else if (ds.remove) { await removeRating(ds.remove).catch(() => {}); }
+  else if (ds.delrule) { await deleteRule(ds.delrule).catch(() => {}); }
+  else if (ds.addrule) { await addRule($("#rule-art").value, $("#rule-muster").value).catch(() => {}); }
+  else if (ds.newreason) { UI.newReason = !UI.newReason; render(); }
+  else if (ds.savereason) { await addReason($("#nr-label").value, Number($("#nr-pol").value), [$("#nr-ziel").value]).catch(() => {}); render(); }
+  else if (ds.editprofil) { UI.editProfil = ds.editprofil === "1"; render(); }
+  else if (ds.saveprofil) { await saveProfil($("#profil-text").value).catch(() => {}); render(); }
+  else if (t.id === "runNow") runNow();
+});
+document.addEventListener("input", (e) => { if (e.target.dataset.freitext) UI.drafts[e.target.dataset.freitext].freitext = e.target.value; });
+document.addEventListener("change", (e) => {
+  if (e.target.dataset.status) setStatus(e.target.dataset.status, e.target.value).catch(() => {});
+  else if (e.target.id === "bereich") { UI.bereich = e.target.value; render(); }
+});
+
+render();
+init();
+</script>
