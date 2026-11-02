@@ -59,3 +59,9 @@ npm run lint      # oxlint
 - Tailwind CSS
 - IndexedDB (via `idb`) für lokale Datenhaltung
 - `vite-plugin-pwa` für Installierbarkeit/Offline-Support
+
+## Weitere Apps in diesem Repo
+
+- `buecher-app/` – Bücher-App (…/AddREADME/buecher/)
+- `fremdwoerter-app/` – Fremdwörter (…/AddREADME/fremdwoerter/)
+- `gitarre-app/` – Gitarre üben mit eigenen Songs: Akkorde, Tabs, Akkordwechsel-Trainer, Stimmgerät (…/AddREADME/gitarre/)

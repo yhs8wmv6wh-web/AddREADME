@@ -10,6 +10,7 @@ on:
 #   - Kulturliste    -> Wurzel        (…github.io/AddREADME/)
 #   - Bücher-App     -> Unterordner   (…github.io/AddREADME/buecher/)
 #   - Fremdwörter    -> Unterordner   (…github.io/AddREADME/fremdwoerter/)
+#   - Gitarre        -> Unterordner   (…github.io/AddREADME/gitarre/)
 # GitHub Pages muss (einmalig, bereits erledigt) auf den Zweig gh-pages zeigen.
 permissions:
   contents: write
@@ -48,6 +49,14 @@ jobs:
           npm ci
           npm run build
 
+      - name: Gitarre-App bauen (Unterordner /gitarre/)
+        working-directory: gitarre-app
+        env:
+          GITHUB_PAGES: "1"
+        run: |
+          npm ci
+          npm run build
+
       - name: Ausgabe zusammenstellen
         run: |
           rm -rf public_site
@@ -57,6 +66,8 @@ jobs:
           cp -r buecher-app/dist/. public_site/buecher/
           mkdir -p public_site/fremdwoerter
           cp -r fremdwoerter-app/dist/. public_site/fremdwoerter/
+          mkdir -p public_site/gitarre
+          cp -r gitarre-app/dist/. public_site/gitarre/
           touch public_site/.nojekyll
 
       - name: Nach gh-pages veröffentlichen
