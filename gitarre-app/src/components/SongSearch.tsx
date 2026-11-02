@@ -15,6 +15,7 @@ interface Job {
   songId?: string
   error?: string
   detail?: string
+  diag?: string
 }
 
 function splitQuery(q: string): [string, string] {
@@ -80,8 +81,8 @@ export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
           if (UG_CLOUD) update(i, { detail: `${ugNote} – frage Claude …` })
           else ugNote = ''
           const r2 = await searchSongClaude(list[i].query, ctrl.signal)
-          if (!r2.found || r2.sections.length === 0) {
-            update(i, { state: 'nicht gefunden', detail: ugNote })
+          if (!r2 || !r2.found || !Array.isArray(r2.sections) || r2.sections.length === 0) {
+            update(i, { state: 'nicht gefunden', detail: ugNote, diag: JSON.stringify(r2, null, 2).slice(0, 3000) })
             continue
           }
           const song2 = toSong(r2, list[i].query, false)
@@ -144,7 +145,8 @@ export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
       {jobs.length > 0 && (
         <ul className="text-sm flex flex-col gap-1">
           {jobs.map((j, i) => (
-            <li key={i} className="flex justify-between gap-2">
+            <li key={i} className="flex flex-col">
+              <div className="flex justify-between gap-2">
               <span className="truncate">{j.query}</span>
               {j.state === 'fertig' && j.songId ? (
                 <button type="button" onClick={() => onOpen(j.songId!)} className="text-teal-600 dark:text-teal-400 underline shrink-0">
@@ -157,6 +159,13 @@ export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
                 >
                   {j.state === 'sucht' ? j.detail || 'sucht …' : j.state === 'fehler' ? j.error : j.state}
                 </span>
+              )}
+              </div>
+              {j.diag && (
+                <details className="text-xs text-neutral-500">
+                  <summary className="cursor-pointer underline">Diagnose: Antwort von Claude</summary>
+                  <pre className="whitespace-pre-wrap break-all bg-neutral-100 dark:bg-neutral-900 rounded p-2 mt-1 max-h-60 overflow-auto">{j.diag}</pre>
+                </details>
               )}
             </li>
           ))}

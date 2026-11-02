@@ -7,7 +7,7 @@ import { extractParts, type FoundSong, type GuitarPart } from './songFormat'
 export class ClaudeSearchError extends Error {}
 
 const RULES = `Regeln:
-- Akkorde: nichts raten. Kennst du den Song nicht, setze "found": false.
+- Akkorde: Gib die Akkorde des Songs so an, wie du sie kennst (bei bekannten Songs, z. B. Beatles-Klassikern, kennst du sie). Bei Unsicherheit trotzdem liefern und "confidence" auf "mittel" oder "niedrig" setzen. "found": false NUR, wenn du den Song überhaupt nicht kennst.
 - KEINE Liedtexte (Urheberrecht) – nur Abschnittsnamen, Akkorde und Gitarren-Tabs.
 - Akkordnamen in englischer Standardschreibweise (B statt H, Bb statt B), z. B. Am, F#m7, Cadd9, G/B.
 - Wird die bekannte Version mit Kapo gespielt: Akkorde und Tabs relativ zum Kapo angeben und "capo" setzen.
