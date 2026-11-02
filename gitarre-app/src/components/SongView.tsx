@@ -7,7 +7,6 @@ import { getShape } from '../lib/chords'
 import { strum } from '../lib/audio'
 import { ChordDiagram } from './ChordDiagram'
 import { parseTab, playTab } from '../lib/tabPlayer'
-import { PATTERNS, pickingExercise } from '../lib/pickingGen'
 import { ARTIFACT } from '../lib/env'
 
 interface Props {
@@ -100,12 +99,12 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
       if (!text) {
         setPartsState('idle')
         setPartsMsg(
-          `Claude hat keine Gitarrenspuren geliefert (${mode === 'online' ? 'mit Browser' : 'ohne Websuche'}). Unten kannst du sofort eine Picking-Übung aus den Akkorden erzeugen.`,
+          `Claude hat auf den Tab-Seiten keine Spuren gefunden (${mode === 'online' ? 'mit Browser' : 'ohne Websuche'}). Öffne die Tab-Seite über die Links unten und füge die Spur ein.`,
         )
         setPartsDiag(JSON.stringify(raw, null, 2).slice(0, 4000))
         return
       }
-      const note = mode === 'online' && sources.length > 0 ? 'Gitarrenspuren aus Online-Quellen ergänzt.' : 'Gitarrenspuren aus dem Wissen von Claude ergänzt (ohne Websuche) – Tabs können von der Aufnahme abweichen.'
+      const note = 'Tabs von Online-Tab-Seiten übernommen (siehe Quellen).'
       set({
         text: song.text.replace(/\s+$/, '') + '\n\n' + text,
         notes: [song.notes, note].filter(Boolean).join('\n'),
@@ -121,12 +120,21 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
     }
   }
 
-  const addPicking = (i: number) => {
-    const text = pickingExercise(compressSeq(seq), PATTERNS[i])
-    if (!text) return
-    set({ text: song.text.replace(/\s+$/, '') + '\n\n' + text })
-    setPartsMsg(`„${PATTERNS[i].name}" unten im Song ergänzt – mit „Tab abspielen" anhören.`)
+  const [pasteName, setPasteName] = useState('Lead-Gitarre')
+  const [pasteText, setPasteText] = useState('')
+  const addPasted = () => {
+    const lines = pasteText.replace(/\r\n?/g, '\n').replace(/\t/g, '    ').split('\n').map((l) => l.replace(/\s+$/, ''))
+    while (lines.length && !lines[0].trim()) lines.shift()
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop()
+    if (lines.length === 0) return
+    const name = (pasteName.trim() || 'Gitarre').replace(/[[\]]/g, '')
+    set({ text: song.text.replace(/\s+$/, '') + '\n\n' + `[${name}]\n` + lines.join('\n') })
+    setPasteText('')
+    setPartsState('idle')
+    setPartsDiag(null)
+    setPartsMsg(`„${name}" unten im Song ergänzt – mit „Tab abspielen" anhören.`)
   }
+  const q = encodeURIComponent([song.title, song.artist].filter(Boolean).join(' '))
 
   const startTab = (lines: string[], onCol: (c: number) => void) => {
     stopTabRef.current?.()
@@ -285,11 +293,12 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
         </div>
       )}
 
-      {(ARTIFACT || chords.length > 0) && (
+      {song.title && (
         <section className="rounded-md border border-neutral-200 dark:border-neutral-800 p-3 flex flex-col gap-2">
-          <h3 className="font-semibold">Gitarrenspuren &amp; Picking</h3>
+          <h3 className="font-semibold">Echte Tabs: Riffs, Licks, Picking</h3>
           <p className="text-sm text-neutral-500">
-            Lead-Gitarre, Rhythmusgitarre mit Picking-Muster und zweite Gitarre als Tabs – zum Mitlesen und Anhören.
+            Original-Tabs von Lead-, Rhythmus- und zweiter Gitarre – zum Mitlesen und Anhören. Nur aus echten Tab-Seiten, nichts
+            ausgedacht.
           </p>
           {!ARTIFACT ? null : partsState === 'loading' ? (
             <button type="button" onClick={() => partsAbort.current?.abort()} className={btn}>
@@ -297,7 +306,7 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
             </button>
           ) : (
             <button type="button" onClick={loadParts} className={btn}>
-              Gitarrenspuren holen
+              Claude holt die Tabs online (Claude-Desktop-App)
             </button>
           )}
           {partsMsg && <p className={`text-sm ${partsState === 'error' ? 'text-red-600' : 'text-neutral-600 dark:text-neutral-400'}`}>{partsMsg}</p>}
@@ -311,18 +320,38 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
               )}
             </div>
           )}
-          {chords.length > 0 && (
-            <div className="flex flex-col gap-1.5 pt-1">
-              <span className="text-sm text-neutral-500">Picking-Übung aus den Akkorden dieses Songs erzeugen (sofort, ohne KI):</span>
-              <div className="flex flex-wrap gap-1.5">
-                {PATTERNS.map((pt, i) => (
-                  <button key={pt.name} type="button" className={btn} onClick={() => addPicking(i)}>
-                    {pt.name.replace('Picking: ', '')}
-                  </button>
-                ))}
-              </div>
+          <div className="flex flex-col gap-2 pt-2 border-t border-neutral-200 dark:border-neutral-800">
+            <span className="text-sm text-neutral-600 dark:text-neutral-400">
+              Überall (auch iPhone): Tab-Seite öffnen, gewünschte Spur markieren und kopieren, hier einfügen.
+            </span>
+            <div className="flex flex-wrap gap-2 text-sm">
+              <a href={`https://www.ultimate-guitar.com/search.php?search_type=title&value=${q}`} target="_blank" rel="noreferrer" className="underline text-sky-700 dark:text-sky-300">
+                Ultimate Guitar: Tabs suchen
+              </a>
+              <a href={`https://www.songsterr.com/?pattern=${q}`} target="_blank" rel="noreferrer" className="underline text-sky-700 dark:text-sky-300">
+                Songsterr (Spuren einzeln, zum Anhören)
+              </a>
             </div>
-          )}
+            <input
+              id="paste-name"
+              value={pasteName}
+              onChange={(e) => setPasteName(e.target.value)}
+              placeholder="Spur, z. B. Lead-Gitarre, Intro-Riff, Gitarre 2"
+              className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-transparent px-3 py-2 text-sm"
+            />
+            <textarea
+              id="paste-tab"
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              rows={5}
+              spellCheck={false}
+              placeholder={'Tab hier einfügen, z. B.\ne|-------0---|\nB|-----1---1-|\n…'}
+              className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-transparent px-3 py-2 font-mono text-xs whitespace-pre overflow-x-auto"
+            />
+            <button type="button" onClick={addPasted} disabled={!pasteText.trim()} className={btn + ' disabled:opacity-40'}>
+              Tab zum Song hinzufügen
+            </button>
+          </div>
         </section>
       )}
 

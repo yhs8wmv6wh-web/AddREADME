@@ -17,11 +17,9 @@ const RULES = `Regeln:
 - Tabs: immer genau 6 Zeilen in dieser Reihenfolge: e|, B|, G|, D|, A|, E| (hohe e oben), Standardstimmung, alle Zeilen gleich lang.
   Ein "-" entspricht ungefähr einer Sechzehntelnote; Takte mit | trennen. Max. ca. 4 Takte pro Tab-Block, mehrere Blöcke mit Leerzeile trennen.`
 
-const PARTS_SPEC = `"parts": Gitarrenspuren der Aufnahme – Lead-Gitarre (Haupt-Riff, Licks, Solo-Ausschnitt), Rhythmusgitarre (Picking- oder Anschlagmuster), zweite Gitarre.
- Pro Spur: {"name": "Lead-Gitarre", "technique": "kurze Beschreibung auf Deutsch: Picking-Muster, Fingerpicking/Plektrum, Palm Mute, Bendings …", "tab": "Tab-Blöcke als EIN String mit \\n", "accuracy": "original" oder "ungefähr"}.
- Gib für jede Spur deine beste Transkription, auch wenn sie nur ungefähr ist – dann "accuracy": "ungefähr". Ein Musiker in der App vergleicht ohnehin mit der Aufnahme.
- Liefere mindestens die Rhythmusgitarre (wie sie die Akkorde des Songs spielt: Picking-Muster bzw. Anschlag) und, wenn der Song ein markantes Riff oder Solo hat, die Lead-Gitarre.
- Lass "parts" nur leer, wenn du den Song überhaupt nicht kennst.`
+const PARTS_SPEC = `"parts": Gitarrenspuren GENAU so, wie sie auf den gelesenen Tab-Seiten stehen – Lead-Gitarre (Riffs, Licks, Solo), Rhythmusgitarre (Picking), zweite Gitarre.
+ Pro Spur: {"name": "Lead-Gitarre", "technique": "was die Seite zur Spielweise sagt (Picking, Palm Mute, Bendings …)", "tab": "Tab-Zeilen 1:1 von der Seite als EIN String mit \\n", "source": "URL der Seite"}.
+ Übernimm Tabs wörtlich. Ergänze, ändere oder erfinde keine einzige Note. Steht auf den Seiten kein Tab für eine Spur, lass die Spur weg. Nichts aus dem Gedächtnis.`
 
 const SHAPE = `Antworte am Ende NUR mit einem JSON-Objekt dieser Form:
 {"found": true, "title": "…", "artist": "…", "key": "E-Dur", "capo": 0, "bpm": 0, "timeSignature": "4/4",
@@ -34,7 +32,7 @@ const ONLINE = `Du hast Browser-Werkzeuge. So gehst du vor:
 1. Öffne die Suche von Ultimate Guitar: https://www.ultimate-guitar.com/search.php?search_type=title&value=<Titel und Interpret, URL-kodiert>
 2. Lies den Seitentext und öffne die am besten bewertete passende Seite (für Akkorde "Chords", für Spuren/Picking "Tab"). Wenn nötig eine zweite Quelle (z. B. Songsterr, e-chords.com).
 3. Übernimm Akkorde und Tabs aus dem gelesenen Text. Trage die gelesenen URLs in "sources" ein.
-Wenn die Werkzeuge nicht funktionieren: antworte aus deinem Wissen, mit leerem "sources".`
+Wenn die Werkzeuge nicht funktionieren: Akkorde aus deinem Wissen, "sources" leer, "parts" leer und "riffTab" leer – Tabs nie aus dem Gedächtnis.`
 
 export type SearchMode = 'online' | 'wissen'
 
@@ -56,7 +54,11 @@ function mapError(err: unknown): never {
   throw new ClaudeSearchError('Claude ist gerade nicht erreichbar.')
 }
 
-async function ask<T>(task: string, signal?: AbortSignal, withParts = true): Promise<{ result: T; mode: SearchMode }> {
+async function ask<T>(
+  task: string,
+  signal?: AbortSignal,
+  opts: { requireOnline?: boolean } = {},
+): Promise<{ result: T; mode: SearchMode }> {
   const sample = await getSample()
   let tools: SampleTool[] | null = null
   try {
@@ -64,12 +66,16 @@ async function ask<T>(task: string, signal?: AbortSignal, withParts = true): Pro
   } catch {
     tools = null
   }
+  if (opts.requireOnline && !tools)
+    throw new ClaudeSearchError(
+      'Echte Tabs kann Claude nur in der Claude-Desktop-App (Mac/Windows) online lesen. Hier: Tab-Seite über die Links öffnen und den Tab unten einfügen.',
+    )
   const prompt = [
     'Du hilfst in einer Gitarren-Lern-App.',
     task,
     tools ? ONLINE : 'Du hast keinen Internetzugang: antworte aus deinem Wissen, "sources" bleibt leer.',
     RULES,
-    withParts ? PARTS_SPEC : '',
+    tools ? PARTS_SPEC : '"parts": immer leeres Array [] und "riffTab": "" – ohne Internet keine Tabs, nichts aus dem Gedächtnis.',
     SHAPE,
   ]
     .filter(Boolean)
@@ -96,8 +102,9 @@ export async function searchPartsClaude(
   signal?: AbortSignal,
 ): Promise<{ parts: GuitarPart[]; sources: string[]; mode: SearchMode; raw: unknown }> {
   const { result, mode } = await ask<FoundSong>(
-    `Finde die Gitarrenspuren als Tabs für: ${title}${artist ? ' – ' + artist : ''}. Wichtig sind hier vor allem "parts" (Lead-Gitarre, Rhythmusgitarre mit Picking-Muster, zweite Gitarre). "sections" darf leer bleiben.`,
+    `Hole die echten Gitarren-Tabs für: ${title}${artist ? ' – ' + artist : ''}. Öffne bei Ultimate Guitar die Ergebnisse vom Typ "Tab" (nicht "Chords"), bei Bedarf mehrere (z. B. Lead, Solo, Intro). Wichtig sind hier nur "parts". "sections" darf leer bleiben.`,
     signal,
+    { requireOnline: true },
   )
   const parts = extractParts(result)
   const sources = Array.isArray(result.sources) ? result.sources.filter((u): u is string => typeof u === 'string') : []
