@@ -93,7 +93,32 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
     partsAbort.current = ctrl
     try {
       const { searchPartsClaude } = await import('../lib/songSearchClaude')
-      const { partsToText } = await import('../lib/songFormat')
+      const { partsToText, ugTabsToText } = await import('../lib/songFormat')
+      const { fetchUltimateGuitar } = await import('../lib/ugCloud')
+      // 1. Echte Tabs von Ultimate Guitar
+      let ugNote = ''
+      try {
+        const results = await fetchUltimateGuitar(song.title, song.artist, { signal: ctrl.signal, onStatus: (d) => setPartsMsg(d) })
+        const ugText = ugTabsToText(results)
+        if (ugText) {
+          const urls = results.filter((r) => r.type === 'Tabs' && !r.error).map((r) => r.url)
+          set({
+            text: song.text.replace(/\s+$/, '') + '\n\n' + ugText,
+            notes: [song.notes, 'Tabs von Ultimate Guitar übernommen (siehe Quellen).'].filter(Boolean).join('\n'),
+            sources: [...new Set([...(song.sources ?? []), ...urls])].slice(0, 8),
+          })
+          setPartsState('idle')
+          setPartsMsg(`${urls.length} Tab(s) von Ultimate Guitar unten im Song ergänzt.`)
+          return
+        }
+        ugNote = 'Ultimate Guitar hat keine Tabs zu diesem Song.'
+      } catch (e) {
+        if (ctrl.signal.aborted) throw e
+        ugNote = `Ultimate Guitar nicht erreichbar: ${(e as Error).message}`
+        setPartsDiag(String((e as Error).message))
+      }
+      setPartsMsg(`${ugNote} Frage Claude …`)
+      // 2. Rückfall: Claude aus dem Gedächtnis, gegengeprüft
       const { parts, sources, mode, raw, dropped, key } = await searchPartsClaude(song.title, song.artist, ctrl.signal)
       const text = partsToText(parts, key)
       if (!text) {
@@ -101,7 +126,7 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
         setPartsMsg(
           mode === 'online'
             ? 'Claude hat auf den Tab-Seiten keine Spuren gefunden. Öffne die Tab-Seite über die Links unten und füge die Spur ein.'
-            : `Claude kennt keine Spur dieses Songs sicher genug${dropped > 0 ? ` (${dropped} unsichere bzw. bei der Prüfung durchgefallene Spur(en) verworfen)` : ''}. Öffne die Tab-Seite über die Links unten und füge die Spur ein.`,
+            : `${ugNote} Claude kennt keine Spur dieses Songs sicher genug${dropped > 0 ? ` (${dropped} unsichere bzw. bei der Prüfung durchgefallene Spur(en) verworfen)` : ''}. Öffne die Tab-Seite über die Links unten und füge die Spur ein.`,
         )
         setPartsDiag(JSON.stringify(raw, null, 2).slice(0, 4000))
         return
@@ -302,13 +327,13 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
         <section className="rounded-md border border-neutral-200 dark:border-neutral-800 p-3 flex flex-col gap-2">
           <h3 className="font-semibold">Echte Tabs: Riffs, Licks, Picking</h3>
           <p className="text-sm text-neutral-500">
-            Original-Tabs von Lead-, Rhythmus- und zweiter Gitarre – zum Mitlesen und Anhören. In der Claude-Desktop-App liest
-            Claude Tab-Seiten online, sonst schreibt es nur Spuren auf, die es sicher kennt, und prüft sie in einem zweiten
-            Durchgang.
+            Original-Tabs von Lead-, Rhythmus- und zweiter Gitarre – zum Mitlesen und Anhören. Die App holt sie selbst von
+            Ultimate Guitar (dauert ca. 30 Sekunden). Gibt es dort nichts, schreibt Claude nur Spuren auf, die es sicher kennt,
+            und prüft sie in einem zweiten Durchgang.
           </p>
           {!ARTIFACT ? null : partsState === 'loading' ? (
             <button type="button" onClick={() => partsAbort.current?.abort()} className={btn}>
-              Sucht … (bis ~1 Min.) – Abbrechen
+              Läuft … – Abbrechen
             </button>
           ) : (
             <button type="button" onClick={loadParts} className={btn}>

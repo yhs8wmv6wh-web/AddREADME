@@ -1,5 +1,6 @@
 import type { Song } from '../types'
 import { checkTab } from './tabCheck'
+import type { UgResult } from './ugCloud'
 
 export interface Section {
   name: string
@@ -150,6 +151,46 @@ export function toSong(raw: FoundSong, query: string, viaWeb = true): Song {
     bpm: r.bpm > 0 ? Math.round(r.bpm) : undefined,
     notes,
     sources: r.sources.filter((u) => /^https?:\/\//.test(u)).slice(0, 5),
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
+// ---- Ultimate Guitar ----
+
+const stars = (r: UgResult) => `★${r.rating.toFixed(1)}, ${r.votes} Stimmen`
+
+/** Tabs von Ultimate Guitar als Song-Text-Abschnitte. */
+export function ugTabsToText(results: UgResult[]): string {
+  const out: string[] = []
+  results
+    .filter((r) => r.type === 'Tabs' && !r.error && r.content.trim())
+    .forEach((r, i) => {
+      const part = r.part ? ` – ${r.part}` : ''
+      out.push(`[Gitarren-Tab ${i + 1}${part} (Ultimate Guitar, ${stars(r)})]`, r.content.trim(), '')
+    })
+  return out.join('\n').trim()
+}
+
+/** Neuer Song aus Ultimate-Guitar-Ergebnissen (Akkordversion + Tabs). */
+export function ugToSong(results: UgResult[], query: string): Song | null {
+  const chords = results.find((r) => r.type === 'Chords' && !r.error && r.content.trim())
+  const tabs = ugTabsToText(results)
+  if (!chords && !tabs) return null
+  const first = chords ?? results.find((r) => !r.error)!
+  const now = Date.now()
+  const text = [chords ? chords.content.trim() : '', tabs].filter(Boolean).join('\n\n')
+  const capo = /capo[^0-9]{0,10}(\d+)/i.exec(chords?.content ?? '')
+  const c = capo ? Math.min(9, Number(capo[1])) : 0
+  return {
+    id: crypto.randomUUID(),
+    title: first.song || query,
+    artist: first.artist || '',
+    text,
+    transpose: c,
+    capo: c,
+    notes: `Von Ultimate Guitar übernommen${chords ? ` (Akkorde: ${stars(chords)})` : ''}. Nur Akkorde und Tabs, ohne Liedtext.`,
+    sources: results.filter((r) => !r.error).map((r) => r.url).slice(0, 6),
     createdAt: now,
     updatedAt: now,
   }

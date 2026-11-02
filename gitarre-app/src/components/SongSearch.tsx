@@ -14,6 +14,12 @@ interface Job {
   state: 'wartet' | 'sucht' | 'fertig' | 'fehler' | 'nicht gefunden'
   songId?: string
   error?: string
+  detail?: string
+}
+
+function splitQuery(q: string): [string, string] {
+  const m = /^(.*?)\s+(?:–|—|-|von|by)\s+(.*)$/i.exec(q.trim())
+  return m ? [m[1].trim(), m[2].trim()] : [q.trim(), '']
 }
 
 export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
@@ -50,6 +56,37 @@ export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
       if (ctrl.signal.aborted) break
       update(i, { state: 'sucht' })
       try {
+        if (ARTIFACT) {
+          // 1. Echte Daten von Ultimate Guitar (über eine Claude-Code-Cloud-Sitzung)
+          const { fetchUltimateGuitar } = await import('../lib/ugCloud')
+          const { ugToSong } = await import('../lib/songFormat')
+          const [t, a] = splitQuery(list[i].query)
+          let ugNote = ''
+          try {
+            const results = await fetchUltimateGuitar(t, a, { signal: ctrl.signal, onStatus: (d) => update(i, { detail: d }) })
+            const song = ugToSong(results, list[i].query)
+            if (song) {
+              await onFound(song)
+              update(i, { state: 'fertig', songId: song.id, detail: 'von Ultimate Guitar' })
+              continue
+            }
+            ugNote = 'Ultimate Guitar: nichts gefunden'
+          } catch (e) {
+            if (ctrl.signal.aborted) throw e
+            ugNote = `Ultimate Guitar: ${(e as Error).message}`
+          }
+          // 2. Rückfall: Claude aus dem Gedächtnis
+          update(i, { detail: `${ugNote} – frage Claude …` })
+          const r2 = await searchSongClaude(list[i].query, ctrl.signal)
+          if (!r2.found || r2.sections.length === 0) {
+            update(i, { state: 'nicht gefunden', detail: ugNote })
+            continue
+          }
+          const song2 = toSong(r2, list[i].query, false)
+          await onFound(song2)
+          update(i, { state: 'fertig', songId: song2.id, detail: `${ugNote} – aus Claudes Wissen` })
+          continue
+        }
         const r = web ? await web.searchSong(list[i].query, key, ctrl.signal) : await searchSongClaude(list[i].query, ctrl.signal)
         if (!r.found || r.sections.length === 0) {
           update(i, { state: 'nicht gefunden' })
@@ -116,7 +153,7 @@ export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
                   className={`shrink-0 ${j.state === 'fehler' || j.state === 'nicht gefunden' ? 'text-red-600' : 'text-neutral-500'}`}
                   title={j.error}
                 >
-                  {j.state === 'sucht' ? 'sucht … (bis ~1 Min.)' : j.state === 'fehler' ? j.error : j.state}
+                  {j.state === 'sucht' ? j.detail || 'sucht …' : j.state === 'fehler' ? j.error : j.state}
                 </span>
               )}
             </li>

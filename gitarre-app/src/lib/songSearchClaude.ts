@@ -2,7 +2,6 @@
 // In der Claude-Desktop-App liest Claude dabei Tab-Seiten im eingebauten Browser,
 // sonst antwortet es aus seinem Wissen.
 import { getCapability, type SampleFn, type SampleTool } from './env'
-import { browserTools } from './online'
 import { extractParts, type FoundSong, type GuitarPart } from './songFormat'
 
 export class ClaudeSearchError extends Error {}
@@ -60,12 +59,7 @@ async function ask<T>(
   opts: { requireOnline?: boolean } = {},
 ): Promise<{ result: T; mode: SearchMode }> {
   const sample = await getSample()
-  let tools: SampleTool[] | null = null
-  try {
-    tools = await browserTools(sample, signal)
-  } catch {
-    tools = null
-  }
+  const tools: SampleTool[] | null = null
   if (opts.requireOnline && !tools)
     throw new ClaudeSearchError(
       'Echte Tabs kann Claude nur in der Claude-Desktop-App (Mac/Windows) online lesen. Hier: Tab-Seite über die Links öffnen und den Tab unten einfügen.',
@@ -127,24 +121,6 @@ export interface PartsResult {
 export async function searchPartsClaude(title: string, artist: string, signal?: AbortSignal): Promise<PartsResult> {
   const song = `${title}${artist ? ' – ' + artist : ''}`
   const sample = await getSample()
-  let tools: SampleTool[] | null = null
-  try {
-    tools = await browserTools(sample, signal)
-  } catch {
-    tools = null
-  }
-
-  if (tools) {
-    const { result } = await ask<FoundSong>(
-      `Hole die echten Gitarren-Tabs für: ${song}. Öffne bei Ultimate Guitar die Ergebnisse vom Typ "Tab" (nicht "Chords"), bei Bedarf mehrere (z. B. Lead, Solo, Intro). Wichtig sind hier nur "parts". "sections" darf leer bleiben.`,
-      signal,
-      { requireOnline: true },
-    )
-    const parts = extractParts(result).map((p) => ({ ...p, accuracy: 'online' }))
-    const sources = Array.isArray(result.sources) ? result.sources.filter((u): u is string => typeof u === 'string') : []
-    return { parts, sources, mode: 'online', raw: result, dropped: 0, key: typeof result.key === 'string' ? result.key : '' }
-  }
-
   // 1. Aus dem Gedächtnis – nur sichere Spuren
   let first: Record<string, unknown>
   try {
