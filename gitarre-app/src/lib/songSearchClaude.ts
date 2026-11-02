@@ -3,12 +3,12 @@
 // sonst antwortet es aus seinem Wissen.
 import { getCapability, type SampleFn, type SampleTool } from './env'
 import { browserTools } from './online'
-import type { FoundSong, GuitarPart } from './songFormat'
+import { extractParts, type FoundSong, type GuitarPart } from './songFormat'
 
 export class ClaudeSearchError extends Error {}
 
 const RULES = `Regeln:
-- Nichts raten. Was du nicht sicher weißt oder nicht gelesen hast, lässt du weg bzw. setzt "found": false.
+- Akkorde: nichts raten. Kennst du den Song nicht, setze "found": false.
 - KEINE Liedtexte (Urheberrecht) – nur Abschnittsnamen, Akkorde und Gitarren-Tabs.
 - Akkordnamen in englischer Standardschreibweise (B statt H, Bb statt B), z. B. Am, F#m7, Cadd9, G/B.
 - Wird die bekannte Version mit Kapo gespielt: Akkorde und Tabs relativ zum Kapo angeben und "capo" setzen.
@@ -17,9 +17,11 @@ const RULES = `Regeln:
 - Tabs: immer genau 6 Zeilen in dieser Reihenfolge: e|, B|, G|, D|, A|, E| (hohe e oben), Standardstimmung, alle Zeilen gleich lang.
   Ein "-" entspricht ungefähr einer Sechzehntelnote; Takte mit | trennen. Max. ca. 4 Takte pro Tab-Block, mehrere Blöcke mit Leerzeile trennen.`
 
-const PARTS_SPEC = `"parts": Gitarrenspuren der Aufnahme, so weit bekannt – z. B. Lead-Gitarre (Riffs, Licks, Solo), Rhythmusgitarre (Picking- oder Anschlagmuster), zweite Gitarre.
- Pro Spur: {"name": "Lead-Gitarre", "technique": "kurze Beschreibung auf Deutsch: Picking-Muster, Fingerpicking/Plektrum, Palm Mute, Bendings …", "tab": "Tab-Blöcke wie oben"}.
- Lieber eine Spur weniger als eine erfundene.`
+const PARTS_SPEC = `"parts": Gitarrenspuren der Aufnahme – Lead-Gitarre (Haupt-Riff, Licks, Solo-Ausschnitt), Rhythmusgitarre (Picking- oder Anschlagmuster), zweite Gitarre.
+ Pro Spur: {"name": "Lead-Gitarre", "technique": "kurze Beschreibung auf Deutsch: Picking-Muster, Fingerpicking/Plektrum, Palm Mute, Bendings …", "tab": "Tab-Blöcke als EIN String mit \\n", "accuracy": "original" oder "ungefähr"}.
+ Gib für jede Spur deine beste Transkription, auch wenn sie nur ungefähr ist – dann "accuracy": "ungefähr". Ein Musiker in der App vergleicht ohnehin mit der Aufnahme.
+ Liefere mindestens die Rhythmusgitarre (wie sie die Akkorde des Songs spielt: Picking-Muster bzw. Anschlag) und, wenn der Song ein markantes Riff oder Solo hat, die Lead-Gitarre.
+ Lass "parts" nur leer, wenn du den Song überhaupt nicht kennst.`
 
 const SHAPE = `Antworte am Ende NUR mit einem JSON-Objekt dieser Form:
 {"found": true, "title": "…", "artist": "…", "key": "E-Dur", "capo": 0, "bpm": 0, "timeSignature": "4/4",
@@ -92,12 +94,12 @@ export async function searchPartsClaude(
   title: string,
   artist: string,
   signal?: AbortSignal,
-): Promise<{ parts: GuitarPart[]; sources: string[]; mode: SearchMode }> {
+): Promise<{ parts: GuitarPart[]; sources: string[]; mode: SearchMode; raw: unknown }> {
   const { result, mode } = await ask<FoundSong>(
     `Finde die Gitarrenspuren als Tabs für: ${title}${artist ? ' – ' + artist : ''}. Wichtig sind hier vor allem "parts" (Lead-Gitarre, Rhythmusgitarre mit Picking-Muster, zweite Gitarre). "sections" darf leer bleiben.`,
     signal,
   )
-  const parts = Array.isArray(result.parts) ? result.parts : []
+  const parts = extractParts(result)
   const sources = Array.isArray(result.sources) ? result.sources.filter((u): u is string => typeof u === 'string') : []
-  return { parts, sources, mode }
+  return { parts, sources, mode, raw: result }
 }

@@ -7,6 +7,7 @@ import { getShape } from '../lib/chords'
 import { strum } from '../lib/audio'
 import { ChordDiagram } from './ChordDiagram'
 import { parseTab, playTab } from '../lib/tabPlayer'
+import { PATTERNS, pickingExercise } from '../lib/pickingGen'
 import { ARTIFACT } from '../lib/env'
 
 interface Props {
@@ -40,6 +41,8 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
   const [tabBpm, setTabBpm] = useState(song.bpm || 80)
   const [partsState, setPartsState] = useState<'idle' | 'loading' | 'error'>('idle')
   const [partsMsg, setPartsMsg] = useState<string | null>(null)
+  const [partsDiag, setPartsDiag] = useState<string | null>(null)
+  const [showDiag, setShowDiag] = useState(false)
   const partsAbort = useRef<AbortController | null>(null)
   const stopTabRef = useRef<(() => void) | null>(null)
   useEffect(() => () => stopTabRef.current?.(), [])
@@ -86,16 +89,20 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
   const loadParts = async () => {
     setPartsState('loading')
     setPartsMsg(null)
+    setPartsDiag(null)
     const ctrl = new AbortController()
     partsAbort.current = ctrl
     try {
       const { searchPartsClaude } = await import('../lib/songSearchClaude')
       const { partsToText } = await import('../lib/songFormat')
-      const { parts, sources, mode } = await searchPartsClaude(song.title, song.artist, ctrl.signal)
+      const { parts, sources, mode, raw } = await searchPartsClaude(song.title, song.artist, ctrl.signal)
       const text = partsToText(parts)
       if (!text) {
         setPartsState('idle')
-        setPartsMsg('Claude hat keine verlässlichen Gitarrenspuren zu diesem Song gefunden.')
+        setPartsMsg(
+          `Claude hat keine Gitarrenspuren geliefert (${mode === 'online' ? 'mit Browser' : 'ohne Websuche'}). Unten kannst du sofort eine Picking-Übung aus den Akkorden erzeugen.`,
+        )
+        setPartsDiag(JSON.stringify(raw, null, 2).slice(0, 4000))
         return
       }
       const note = mode === 'online' && sources.length > 0 ? 'Gitarrenspuren aus Online-Quellen ergänzt.' : 'Gitarrenspuren aus dem Wissen von Claude ergänzt (ohne Websuche) – Tabs können von der Aufnahme abweichen.'
@@ -109,7 +116,16 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
     } catch (err) {
       setPartsState('error')
       setPartsMsg(err instanceof Error ? err.message : 'Fehler beim Laden der Spuren.')
+      const e = err as { code?: string; message?: string; text?: string }
+      setPartsDiag(JSON.stringify({ code: e?.code, message: e?.message, text: e?.text?.slice(0, 3000) }, null, 2))
     }
+  }
+
+  const addPicking = (i: number) => {
+    const text = pickingExercise(compressSeq(seq), PATTERNS[i])
+    if (!text) return
+    set({ text: song.text.replace(/\s+$/, '') + '\n\n' + text })
+    setPartsMsg(`„${PATTERNS[i].name}" unten im Song ergänzt – mit „Tab abspielen" anhören.`)
   }
 
   const startTab = (lines: string[], onCol: (c: number) => void) => {
@@ -269,13 +285,13 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
         </div>
       )}
 
-      {ARTIFACT && song.title && (
+      {(ARTIFACT || chords.length > 0) && (
         <section className="rounded-md border border-neutral-200 dark:border-neutral-800 p-3 flex flex-col gap-2">
           <h3 className="font-semibold">Gitarrenspuren &amp; Picking</h3>
           <p className="text-sm text-neutral-500">
             Lead-Gitarre, Rhythmusgitarre mit Picking-Muster und zweite Gitarre als Tabs – zum Mitlesen und Anhören.
           </p>
-          {partsState === 'loading' ? (
+          {!ARTIFACT ? null : partsState === 'loading' ? (
             <button type="button" onClick={() => partsAbort.current?.abort()} className={btn}>
               Sucht … (bis ~1 Min.) – Abbrechen
             </button>
@@ -285,6 +301,28 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
             </button>
           )}
           {partsMsg && <p className={`text-sm ${partsState === 'error' ? 'text-red-600' : 'text-neutral-600 dark:text-neutral-400'}`}>{partsMsg}</p>}
+          {partsDiag && (
+            <div className="text-xs">
+              <button type="button" className="underline text-neutral-500" onClick={() => setShowDiag((v) => !v)}>
+                {showDiag ? 'Diagnose ausblenden' : 'Diagnose anzeigen'}
+              </button>
+              {showDiag && (
+                <pre className="mt-1 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded bg-neutral-100 dark:bg-neutral-900 p-2">{partsDiag}</pre>
+              )}
+            </div>
+          )}
+          {chords.length > 0 && (
+            <div className="flex flex-col gap-1.5 pt-1">
+              <span className="text-sm text-neutral-500">Picking-Übung aus den Akkorden dieses Songs erzeugen (sofort, ohne KI):</span>
+              <div className="flex flex-wrap gap-1.5">
+                {PATTERNS.map((pt, i) => (
+                  <button key={pt.name} type="button" className={btn} onClick={() => addPicking(i)}>
+                    {pt.name.replace('Picking: ', '')}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       )}
 

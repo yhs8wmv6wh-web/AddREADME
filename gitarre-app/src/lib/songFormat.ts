@@ -10,6 +10,8 @@ export interface GuitarPart {
   name: string
   technique: string
   tab: string
+  /** z. B. "original" oder "ungefähr" */
+  accuracy?: string
 }
 
 export interface FoundSong {
@@ -32,15 +34,51 @@ export interface FoundSong {
 
 /** Baut aus dem Rechercheergebnis einen Song im App-Format. */
 /** Gitarrenspuren als Song-Text: Abschnitt + Technik-Zeile + Tab-Blöcke. */
+function tabText(v: unknown): string {
+  if (typeof v === 'string') return v
+  if (Array.isArray(v)) return v.map((x) => (typeof x === 'string' ? x : tabText(x))).join('\n')
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>
+    return tabText(o.tab ?? o.lines ?? o.text ?? '')
+  }
+  return ''
+}
+
+/** Spuren aus einer Claude-Antwort holen – tolerant gegenüber anderen Schlüsselnamen/Formaten. */
+export function extractParts(r: unknown): GuitarPart[] {
+  if (!r || typeof r !== 'object') return []
+  const o = r as Record<string, unknown>
+  const raw = o.parts ?? o.tracks ?? o.guitarParts ?? o.guitars ?? o.spuren
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((x): GuitarPart | null => {
+      if (!x || typeof x !== 'object') return null
+      const p = x as Record<string, unknown>
+      const tab = tabText(p.tab ?? p.tabs ?? p.lines ?? p.blocks)
+      if (!tab.trim()) return null
+      const str = (v: unknown) => (typeof v === 'string' ? v : '')
+      return {
+        name: str(p.name) || str(p.role) || 'Gitarre',
+        technique: str(p.technique) || str(p.description) || str(p.picking),
+        tab,
+        accuracy: str(p.accuracy) || str(p.confidence),
+      }
+    })
+    .filter((x): x is GuitarPart => x !== null)
+}
+
+/** Gitarrenspuren als Song-Text: Abschnitt + Technik-Zeile + Tab-Blöcke. */
 export function partsToText(parts: GuitarPart[] | undefined): string {
   if (!Array.isArray(parts)) return ''
   const out: string[] = []
   for (const p of parts) {
-    if (!p || typeof p.tab !== 'string' || !p.tab.trim()) continue
-    const name = (typeof p.name === 'string' && p.name.trim() ? p.name : 'Gitarre').replace(/[[\]]/g, '')
+    const tab = tabText(p?.tab)
+    if (!tab.trim()) continue
+    const label = p.accuracy && /ungef|niedrig|mittel|approx/i.test(p.accuracy) ? ' (ungefähr)' : ''
+    const name = ((typeof p.name === 'string' && p.name.trim() ? p.name : 'Gitarre') + label).replace(/[[\]]/g, '')
     out.push(`[${name}]`)
     if (typeof p.technique === 'string' && p.technique.trim()) out.push(`Technik: ${p.technique.trim()}`)
-    out.push(...p.tab.trim().split('\n').map((l) => l.replace(/\s+$/, '')), '')
+    out.push(...tab.trim().split('\n').map((l) => l.replace(/\s+$/, '')), '')
   }
   return out.join('\n').trim()
 }
@@ -79,7 +117,7 @@ export function toSong(raw: FoundSong, query: string, viaWeb = true): Song {
   if (r.riffTab.trim()) {
     lines.push('[Riff]', ...r.riffTab.trim().split('\n'), '')
   }
-  const partsText = partsToText(raw.parts)
+  const partsText = partsToText(extractParts(raw))
   if (partsText) lines.push(partsText, '')
   const info = [
     r.key && `Tonart: ${r.key}`,
