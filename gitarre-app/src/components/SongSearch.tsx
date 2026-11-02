@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import type { Song } from '../types'
 import { getApiKey } from '../lib/apiKey'
+import { ARTIFACT } from '../lib/env'
 
 interface Props {
   onFound: (song: Song) => Promise<void>
@@ -24,7 +25,7 @@ export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
   const update = (i: number, patch: Partial<Job>) => setJobs((prev) => prev.map((j, k) => (k === i ? { ...j, ...patch } : j)))
 
   const run = async () => {
-    const key = getApiKey()
+    const key = ARTIFACT ? 'claude' : getApiKey()
     if (!key) {
       onNeedKey()
       return
@@ -39,19 +40,22 @@ export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
     setJobs(list)
     setRunning(true)
     // SDK erst bei Bedarf laden (hält den Start der App schlank)
-    const { SongSearchError, searchSong, toSong } = await import('../lib/songSearch')
+    const { toSong } = await import('../lib/songFormat')
+    const { searchSongClaude, ClaudeSearchError } = await import('../lib/songSearchClaude')
+    const web = import.meta.env.MODE === 'artifact' ? null : await import('../lib/songSearch')
+    const isKnownError = (e: unknown) => e instanceof ClaudeSearchError || (web !== null && e instanceof web.SongSearchError)
     const ctrl = new AbortController()
     abort.current = ctrl
     for (let i = 0; i < list.length; i++) {
       if (ctrl.signal.aborted) break
       update(i, { state: 'sucht' })
       try {
-        const r = await searchSong(list[i].query, key, ctrl.signal)
+        const r = web ? await web.searchSong(list[i].query, key, ctrl.signal) : await searchSongClaude(list[i].query, ctrl.signal)
         if (!r.found || r.sections.length === 0) {
           update(i, { state: 'nicht gefunden' })
           continue
         }
-        const song = toSong(r, list[i].query)
+        const song = toSong(r, list[i].query, !ARTIFACT)
         await onFound(song)
         update(i, { state: 'fertig', songId: song.id })
       } catch (err) {
@@ -59,8 +63,8 @@ export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
           update(i, { state: 'fehler', error: 'abgebrochen' })
           break
         }
-        update(i, { state: 'fehler', error: err instanceof SongSearchError ? err.message : 'Unbekannter Fehler' })
-        if (err instanceof SongSearchError && /Schlüssel/.test(err.message)) break
+        update(i, { state: 'fehler', error: isKnownError(err) ? (err as Error).message : 'Unbekannter Fehler' })
+        if (isKnownError(err) && /Schlüssel|nicht erlaubt|nicht verfügbar/.test((err as Error).message)) break
       }
     }
     setRunning(false)
@@ -71,7 +75,9 @@ export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
     <section className="rounded-md border border-neutral-200 dark:border-neutral-800 p-3 flex flex-col gap-2">
       <h3 className="font-semibold">Song automatisch suchen</h3>
       <p className="text-sm text-neutral-500 leading-relaxed">
-        Titel und Interpret eingeben – die KI sucht im Netz die Akkorde, den Aufbau, Kapo und Schlagmuster und legt den Song an.
+        {ARTIFACT
+          ? 'Titel und Interpret eingeben – Claude liefert Akkorde, Aufbau, Kapo und Schlagmuster und legt den Song an.'
+          : 'Titel und Interpret eingeben – die KI sucht im Netz die Akkorde, den Aufbau, Kapo und Schlagmuster und legt den Song an.'}
         Mehrere Songs: einer pro Zeile.
       </p>
       <textarea
@@ -118,8 +124,9 @@ export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
         </ul>
       )}
       <p className="text-xs text-neutral-500">
-        Ergebnis ist eine KI-Recherche mit Quellenangabe – Akkorde können von der Aufnahme abweichen. Kosten grob geschätzt: 10–30 Cent pro
-        Song über deinen Anthropic-Schlüssel (Websuche + Modell).
+        {ARTIFACT
+          ? 'Claude antwortet aus seinem Wissen, ohne Websuche. Bei bekannten Songs meist treffend, bei unbekannten unsicher – jeden Song kannst du danach bearbeiten.'
+          : 'Ergebnis ist eine KI-Recherche mit Quellenangabe – Akkorde können von der Aufnahme abweichen. Kosten grob geschätzt: 10–30 Cent pro Song über deinen Anthropic-Schlüssel (Websuche + Modell).'}
       </p>
     </section>
   )

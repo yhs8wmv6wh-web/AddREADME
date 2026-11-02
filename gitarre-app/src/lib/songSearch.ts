@@ -1,33 +1,13 @@
 // Sucht Akkorde zu einem Song per Claude + Websuche und baut daraus einen
 // Songtext im App-Format. Läuft direkt im Browser mit dem Schlüssel des Nutzers.
 import Anthropic from '@anthropic-ai/sdk'
-import type { Song } from '../types'
+import type { FoundSong } from './songFormat'
+
+export { toSong } from './songFormat'
 
 const MODEL = 'claude-opus-5-5'
 
 export class SongSearchError extends Error {}
-
-interface Section {
-  name: string
-  chords: string
-  repeat: number
-}
-
-interface FoundSong {
-  found: boolean
-  title: string
-  artist: string
-  key: string
-  capo: number
-  bpm: number
-  timeSignature: string
-  strumming: string
-  sections: Section[]
-  riffTab: string
-  notes: string
-  sources: string[]
-  confidence: 'hoch' | 'mittel' | 'niedrig'
-}
 
 const SAVE_TOOL: Anthropic.Beta.BetaTool = {
   name: 'save_song',
@@ -129,42 +109,4 @@ export async function searchSong(query: string, apiKey: string, signal?: AbortSi
     }
   }
   throw new SongSearchError('Die Suche hat kein Ergebnis geliefert. Bitte genauer angeben (Titel + Interpret).')
-}
-
-/** Baut aus dem Rechercheergebnis einen Song im App-Format. */
-export function toSong(r: FoundSong, query: string): Song {
-  const now = Date.now()
-  const lines: string[] = []
-  for (const s of r.sections) {
-    const rep = s.repeat > 1 ? ` (${s.repeat}x)` : ''
-    lines.push(`[${s.name.replace(/[[\]]/g, '')}${rep}]`)
-    for (const l of s.chords.split('\n')) if (l.trim()) lines.push(l.trim())
-    lines.push('')
-  }
-  if (r.riffTab.trim()) {
-    lines.push('[Riff]', ...r.riffTab.trim().split('\n'), '')
-  }
-  const info = [
-    r.key && `Tonart: ${r.key}`,
-    r.timeSignature && `Takt: ${r.timeSignature}`,
-    r.strumming && `Schlagmuster: ${r.strumming}`,
-  ].filter(Boolean)
-  const notes = [info.join(' · '), r.notes.trim(), `KI-Recherche (Übereinstimmung der Quellen: ${r.confidence}) – mit Original vergleichen.`]
-    .filter(Boolean)
-    .join('\n')
-  const capo = Math.max(0, Math.min(9, Math.round(r.capo || 0)))
-  return {
-    id: crypto.randomUUID(),
-    title: r.title.trim() || query.trim(),
-    artist: r.artist.trim(),
-    text: lines.join('\n').trim(),
-    // Kapo-Version: Text enthält Griffe, klingt um capo höher
-    transpose: capo,
-    capo,
-    bpm: r.bpm > 0 ? Math.round(r.bpm) : undefined,
-    notes,
-    sources: r.sources.filter((u) => /^https?:\/\//.test(u)).slice(0, 5),
-    createdAt: now,
-    updatedAt: now,
-  }
 }

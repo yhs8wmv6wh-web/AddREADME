@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import type { PracticeRecord, Settings, Song } from './types'
+import { requestPersistentStorage, type StorageStatus } from './db'
 import {
   addPractice,
   deletePractice,
@@ -7,11 +8,11 @@ import {
   getAllSongs,
   getPractice,
   getSettings,
-  requestPersistentStorage,
+  initStore,
   saveSettings,
   saveSong,
-  type StorageStatus,
-} from './db'
+} from './store'
+import { ARTIFACT } from './lib/env'
 import { SongList } from './components/SongList'
 import { SongView } from './components/SongView'
 import { SongEditor } from './components/SongEditor'
@@ -50,6 +51,8 @@ function App() {
   const [preset, setPreset] = useState<TrainerPreset | null>(null)
   const [standalone] = useState(detectStandalone)
   const [storageStatus, setStorageStatus] = useState<StorageStatus | null>(null)
+  const [mode, setMode] = useState<'cloud' | 'local'>('local')
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const reload = async () => {
     const [s, p, st] = await Promise.all([getAllSongs(), getPractice(), getSettings()])
@@ -59,8 +62,17 @@ function App() {
   }
 
   useEffect(() => {
-    requestPersistentStorage().then(setStorageStatus)
-    reload().then(() => setLoaded(true))
+    if (!ARTIFACT) requestPersistentStorage().then(setStorageStatus)
+    initStore()
+      .then((m) => {
+        setMode(m)
+        return reload()
+      })
+      .then(() => setLoaded(true))
+      .catch((e: unknown) => {
+        setLoadError(e instanceof Error ? e.message : 'Daten konnten nicht geladen werden.')
+        setLoaded(true)
+      })
   }, [])
 
   const goTab = (t: Tab) => {
@@ -94,6 +106,13 @@ function App() {
 
   let content: ReactNode
   if (!loaded) content = <p className="text-center text-neutral-500 py-16">Lädt …</p>
+  else if (loadError)
+    content = (
+      <div className="text-center py-16 flex flex-col gap-3 items-center">
+        <p>Deine Songs konnten nicht geladen werden ({loadError}).</p>
+        <p className="text-sm text-neutral-500">Bitte die Seite neu öffnen. Gespeicherte Daten gehen dadurch nicht verloren.</p>
+      </div>
+    )
   else if (tab === 'songs') {
     if (editing)
       content = (
@@ -206,20 +225,36 @@ function App() {
           </ol>
           <p className="text-neutral-500">Lieber jeden Tag 15 Minuten als einmal pro Woche zwei Stunden.</p>
         </section>
-        <ApiKeySettings />
-        <StorageNotice status={storageStatus} standalone={standalone} />
-        <BackupBar
-          onImported={async (n) => {
-            await reload()
-            alert(`${n} Songs aus dem Backup geladen.`)
-          }}
-        />
+        {ARTIFACT ? (
+          <section className="flex flex-col gap-2 text-sm leading-relaxed">
+            <h2 className="font-serif text-xl">Speicherung</h2>
+            {mode === 'cloud' ? (
+              <p>Deine Songs, Übungen und „kann ich"-Griffe werden privat in deinem claude.ai-Konto gespeichert – auf allen Geräten gleich.</p>
+            ) : (
+              <p className="text-amber-700 dark:text-amber-400">
+                Gerade wird nur in diesem Browser gespeichert (nicht in claude.ai angemeldet). Melde dich an, damit deine Daten in
+                deinem Konto liegen.
+              </p>
+            )}
+          </section>
+        ) : (
+          <>
+            <ApiKeySettings />
+            <StorageNotice status={storageStatus} standalone={standalone} />
+            <BackupBar
+              onImported={async (n) => {
+                await reload()
+                alert(`${n} Songs aus dem Backup geladen.`)
+              }}
+            />
+          </>
+        )}
       </div>
     )
 
   return (
     <div className="min-h-dvh flex flex-col bg-white dark:bg-neutral-950 text-neutral-900 dark:text-neutral-100">
-      <header className="sticky top-0 z-10 bg-white/95 dark:bg-neutral-950/95 backdrop-blur border-b border-neutral-200 dark:border-neutral-800 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+      <header className="sticky top-[env(safe-area-inset-top,0px)] z-10 bg-white/95 dark:bg-neutral-950/95 backdrop-blur border-b border-neutral-200 dark:border-neutral-800 px-4 py-3 ">
         <h1 className="font-serif text-xl max-w-2xl mx-auto">Gitarre üben</h1>
       </header>
 
@@ -242,7 +277,7 @@ function App() {
         </div>
       </nav>
 
-      <UpdatePrompt />
+      {!ARTIFACT && <UpdatePrompt />}
     </div>
   )
 }

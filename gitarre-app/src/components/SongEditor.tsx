@@ -34,6 +34,7 @@ export function SongEditor({ song, german, onSave, onCancel, onDelete }: Props) 
   const [text, setText] = useState(song?.text ?? '')
   const [bpm, setBpm] = useState(song?.bpm ? String(song.bpm) : '')
   const [notes, setNotes] = useState(song?.notes ?? '')
+  const [confirmDelete, setConfirmDelete] = useState(false)
 
   const sheet = useMemo(() => parseSheet(text), [text])
   const chords = useMemo(() => uniqueChords(chordSequence(sheet, 0)), [sheet])
@@ -128,17 +129,22 @@ export function SongEditor({ song, german, onSave, onCancel, onDelete }: Props) 
           Speichern
         </button>
       </div>
-      {onDelete && (
-        <button
-          type="button"
-          onClick={() => {
-            if (confirm(`„${song?.title}" wirklich löschen?`)) onDelete()
-          }}
-          className="text-sm text-red-600 underline self-center mt-4"
-        >
-          Song löschen
-        </button>
-      )}
+      {onDelete &&
+        (confirmDelete ? (
+          <div className="flex items-center justify-center gap-3 mt-4 text-sm">
+            <span>„{song?.title}" wirklich löschen?</span>
+            <button type="button" onClick={onDelete} className="rounded-md bg-red-600 text-white px-3 py-1.5 font-medium">
+              Löschen
+            </button>
+            <button type="button" onClick={() => setConfirmDelete(false)} className="underline">
+              Nein
+            </button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setConfirmDelete(true)} className="text-sm text-red-600 underline self-center mt-4">
+            Song löschen
+          </button>
+        ))}
     </div>
   )
 }

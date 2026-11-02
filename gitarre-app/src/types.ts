@@ -31,4 +31,6 @@ export interface PracticeRecord {
 export interface Settings {
   known: string[]
   german: boolean
+  /** Ausgeblendete Beispielsongs (nur Artefakt) */
+  hiddenExamples?: string[]
 }

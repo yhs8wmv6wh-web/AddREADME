@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { audio, pluckString } from '../lib/audio'
 import { detectPitch, freqToMidi } from '../lib/pitch'
+import { ARTIFACT } from '../lib/env'
 import { NOTE_NAMES, STANDARD_TUNING_MIDI, STRING_NAMES, displayChord } from '../lib/music'
 
 interface Reading {
@@ -84,6 +85,38 @@ export function Tuner({ german }: { german: boolean }) {
   const inTune = reading !== null && Math.abs(reading.cents) <= 5
   const stringOff = reading ? reading.stringCents : 0
 
+  const referenceTones = (
+      <section>
+        <h3 className="font-semibold mb-1">Referenztöne (Standardstimmung)</h3>
+        <p className="text-sm text-neutral-500 mb-2">Antippen spielt die leere Saite. Von tief nach hoch: {STRING_NAMES.map((_, i) => stringLabel(i, german)).join(' ')}.</p>
+        <div className="grid grid-cols-6 gap-1.5">
+          {STRING_NAMES.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => pluckString(i)}
+              className={`rounded-md border py-3 font-semibold ${
+                reading?.string === i ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30' : 'border-neutral-300 dark:border-neutral-700'
+              }`}
+            >
+              {stringLabel(i, german)}
+            </button>
+          ))}
+        </div>
+      </section>
+  )
+
+  if (ARTIFACT)
+    return (
+      <div className="flex flex-col gap-4">
+        {referenceTones}
+        <p className="text-sm text-neutral-500">
+          Ein Mikrofon-Stimmgerät ist in claude.ai-Artefakten nicht möglich. Ton anspielen, Saite anschlagen und drehen, bis beide
+          gleich klingen (kein „Schweben“ mehr).
+        </p>
+      </div>
+    )
+
   return (
     <div className="flex flex-col gap-6">
       <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 p-4 flex flex-col items-center gap-3">
@@ -116,6 +149,11 @@ export function Tuner({ german }: { german: boolean }) {
             {Math.abs(stringOff) <= 5 ? 'gestimmt' : stringOff < 0 ? 'höher drehen (spannen)' : 'tiefer drehen (lockern)'}
           </p>
         )}
+        {ARTIFACT ? (
+          <p className="text-sm text-neutral-500 text-center">
+            Das Mikrofon-Stimmgerät ist in claude.ai-Artefakten gesperrt. Stimme mit den Referenztönen unten nach Gehör.
+          </p>
+        ) : (
         <button
           type="button"
           onClick={active ? stop : start}
@@ -123,27 +161,11 @@ export function Tuner({ german }: { german: boolean }) {
         >
           {active ? 'Stimmgerät aus' : 'Stimmgerät starten (Mikrofon)'}
         </button>
+        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
 
-      <section>
-        <h3 className="font-semibold mb-1">Referenztöne (Standardstimmung)</h3>
-        <p className="text-sm text-neutral-500 mb-2">Antippen spielt die leere Saite. Von tief nach hoch: {STRING_NAMES.map((_, i) => stringLabel(i, german)).join(' ')}.</p>
-        <div className="grid grid-cols-6 gap-1.5">
-          {STRING_NAMES.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => pluckString(i)}
-              className={`rounded-md border py-3 font-semibold ${
-                reading?.string === i ? 'border-amber-500 bg-amber-50 dark:bg-amber-950/30' : 'border-neutral-300 dark:border-neutral-700'
-              }`}
-            >
-              {stringLabel(i, german)}
-            </button>
-          ))}
-        </div>
-      </section>
+      {referenceTones}
     </div>
   )
 }
