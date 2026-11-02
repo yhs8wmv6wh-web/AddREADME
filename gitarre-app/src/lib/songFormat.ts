@@ -6,6 +6,12 @@ export interface Section {
   repeat: number
 }
 
+export interface GuitarPart {
+  name: string
+  technique: string
+  tab: string
+}
+
 export interface FoundSong {
   found: boolean
   title: string
@@ -17,6 +23,7 @@ export interface FoundSong {
   strumming: string
   sections: Section[]
   riffTab: string
+  parts?: GuitarPart[]
   notes: string
   sources: string[]
   confidence: 'hoch' | 'mittel' | 'niedrig'
@@ -24,6 +31,20 @@ export interface FoundSong {
 
 
 /** Baut aus dem Rechercheergebnis einen Song im App-Format. */
+/** Gitarrenspuren als Song-Text: Abschnitt + Technik-Zeile + Tab-Blöcke. */
+export function partsToText(parts: GuitarPart[] | undefined): string {
+  if (!Array.isArray(parts)) return ''
+  const out: string[] = []
+  for (const p of parts) {
+    if (!p || typeof p.tab !== 'string' || !p.tab.trim()) continue
+    const name = (typeof p.name === 'string' && p.name.trim() ? p.name : 'Gitarre').replace(/[[\]]/g, '')
+    out.push(`[${name}]`)
+    if (typeof p.technique === 'string' && p.technique.trim()) out.push(`Technik: ${p.technique.trim()}`)
+    out.push(...p.tab.trim().split('\n').map((l) => l.replace(/\s+$/, '')), '')
+  }
+  return out.join('\n').trim()
+}
+
 export function toSong(raw: FoundSong, query: string, viaWeb = true): Song {
   const now = Date.now()
   // Antwort defensiv lesen (bei der Claude-Variante wird nichts validiert)
@@ -58,6 +79,8 @@ export function toSong(raw: FoundSong, query: string, viaWeb = true): Song {
   if (r.riffTab.trim()) {
     lines.push('[Riff]', ...r.riffTab.trim().split('\n'), '')
   }
+  const partsText = partsToText(raw.parts)
+  if (partsText) lines.push(partsText, '')
   const info = [
     r.key && `Tonart: ${r.key}`,
     r.timeSignature && `Takt: ${r.timeSignature}`,

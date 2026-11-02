@@ -26,8 +26,27 @@ export interface DB {
 export interface UserNs {
   id(): Promise<string | null>
 }
+export interface SampleTool {
+  name: string
+  description: string
+  inputSchema?: unknown
+  execute(input: Record<string, unknown>): unknown
+}
 export interface SampleFn {
-  json<T = unknown>(input: string, opts?: { modelTier?: 'quick' | 'default' | 'complex'; signal?: AbortSignal; cache?: boolean }): Promise<T>
+  json<T = unknown>(
+    input: string,
+    opts?: { modelTier?: 'quick' | 'default' | 'complex'; signal?: AbortSignal; cache?: boolean; tools?: SampleTool[] },
+  ): Promise<T>
+  limits(): Promise<{ tools?: { maxCount: number } }>
+}
+export interface McpNs {
+  describeTool(server: string, tool: string): Promise<{ name: string; description: string; inputSchema: unknown }>
+  callTool(
+    server: string,
+    tool: string,
+    input?: unknown,
+    options?: { cache?: false; signal?: AbortSignal },
+  ): Promise<{ content: { type: string; text?: string }[]; structuredContent?: unknown }>
 }
 
 interface ClaudeWindow {

@@ -67,6 +67,12 @@ export function strum(frets: number[], when?: number, direction: 'down' | 'up' =
   }
 }
 
+/** Einzelne Note auf Saite (0 = tiefe E) und Bund, optional zu einem Zeitpunkt der Audio-Uhr. */
+export function pluckNote(stringIndex: number, fret: number, when?: number) {
+  const ac = audio()
+  playFreq(midiToFreq(STANDARD_TUNING_MIDI[stringIndex] + fret), when ?? ac.currentTime + 0.02, 0.4)
+}
+
 /** Einzelne Saite (z. B. Referenzton beim Stimmen). */
 export function pluckString(stringIndex: number, fret = 0) {
   const ac = audio()

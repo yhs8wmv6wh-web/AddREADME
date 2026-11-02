@@ -6,6 +6,8 @@ import { gripScore, suggestCapo } from '../lib/capo'
 import { getShape } from '../lib/chords'
 import { strum } from '../lib/audio'
 import { ChordDiagram } from './ChordDiagram'
+import { parseTab, playTab } from '../lib/tabPlayer'
+import { ARTIFACT } from '../lib/env'
 
 interface Props {
   song: Song
@@ -35,6 +37,12 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
   const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('gitarre.fontSize')) || 15)
   const [scrolling, setScrolling] = useState(false)
   const [speed, setSpeed] = useState(20)
+  const [tabBpm, setTabBpm] = useState(song.bpm || 80)
+  const [partsState, setPartsState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [partsMsg, setPartsMsg] = useState<string | null>(null)
+  const partsAbort = useRef<AbortController | null>(null)
+  const stopTabRef = useRef<(() => void) | null>(null)
+  useEffect(() => () => stopTabRef.current?.(), [])
   const [popup, setPopup] = useState<string | null>(null)
 
   useEffect(() => localStorage.setItem('gitarre.fontSize', String(fontSize)), [fontSize])
@@ -74,6 +82,50 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
   }, [])
 
   const set = (patch: Partial<Song>) => onChange({ ...song, ...patch, updatedAt: Date.now() })
+
+  const loadParts = async () => {
+    setPartsState('loading')
+    setPartsMsg(null)
+    const ctrl = new AbortController()
+    partsAbort.current = ctrl
+    try {
+      const { searchPartsClaude } = await import('../lib/songSearchClaude')
+      const { partsToText } = await import('../lib/songFormat')
+      const { parts, sources, mode } = await searchPartsClaude(song.title, song.artist, ctrl.signal)
+      const text = partsToText(parts)
+      if (!text) {
+        setPartsState('idle')
+        setPartsMsg('Claude hat keine verlässlichen Gitarrenspuren zu diesem Song gefunden.')
+        return
+      }
+      const note = mode === 'online' && sources.length > 0 ? 'Gitarrenspuren aus Online-Quellen ergänzt.' : 'Gitarrenspuren aus dem Wissen von Claude ergänzt (ohne Websuche) – Tabs können von der Aufnahme abweichen.'
+      set({
+        text: song.text.replace(/\s+$/, '') + '\n\n' + text,
+        notes: [song.notes, note].filter(Boolean).join('\n'),
+        sources: [...new Set([...(song.sources ?? []), ...sources.filter((u) => /^https?:\/\//.test(u))])].slice(0, 8),
+      })
+      setPartsState('idle')
+      setPartsMsg(`${parts.length} Spur(en) unten im Song ergänzt.`)
+    } catch (err) {
+      setPartsState('error')
+      setPartsMsg(err instanceof Error ? err.message : 'Fehler beim Laden der Spuren.')
+    }
+  }
+
+  const startTab = (lines: string[], onCol: (c: number) => void) => {
+    stopTabRef.current?.()
+    const { events, width } = parseTab(lines)
+    if (events.length === 0) return
+    const stop = playTab(events, width, 60 / tabBpm / 4, (c) => {
+      onCol(c)
+      if (c < 0 && stopTabRef.current === stop) stopTabRef.current = null
+    })
+    stopTabRef.current = stop
+  }
+  const stopTab = () => {
+    stopTabRef.current?.()
+    stopTabRef.current = null
+  }
   const showChord = (c: string) => {
     const s = getShape(c)
     if (s) strum(s.frets)
@@ -217,6 +269,39 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
         </div>
       )}
 
+      {ARTIFACT && song.title && (
+        <section className="rounded-md border border-neutral-200 dark:border-neutral-800 p-3 flex flex-col gap-2">
+          <h3 className="font-semibold">Gitarrenspuren &amp; Picking</h3>
+          <p className="text-sm text-neutral-500">
+            Lead-Gitarre, Rhythmusgitarre mit Picking-Muster und zweite Gitarre als Tabs – zum Mitlesen und Anhören.
+          </p>
+          {partsState === 'loading' ? (
+            <button type="button" onClick={() => partsAbort.current?.abort()} className={btn}>
+              Sucht … (bis ~1 Min.) – Abbrechen
+            </button>
+          ) : (
+            <button type="button" onClick={loadParts} className={btn}>
+              Gitarrenspuren holen
+            </button>
+          )}
+          {partsMsg && <p className={`text-sm ${partsState === 'error' ? 'text-red-600' : 'text-neutral-600 dark:text-neutral-400'}`}>{partsMsg}</p>}
+        </section>
+      )}
+
+      {sheet.lines.some((l) => l.kind === 'tab') && (
+        <div className="flex items-center gap-2 text-sm flex-wrap">
+          <span className="text-neutral-500">Tab-Tempo</span>
+          <button type="button" className={btn} onClick={() => setTabBpm((b) => Math.max(30, b - 10))}>
+            −10
+          </button>
+          <span className="tabular-nums font-medium w-16 text-center">{tabBpm} BPM</span>
+          <button type="button" className={btn} onClick={() => setTabBpm((b) => Math.min(240, b + 10))}>
+            +10
+          </button>
+          <span className="text-xs text-neutral-500">ein „-“ ≈ eine Sechzehntel</span>
+        </div>
+      )}
+
       {/* Anzeige-Optionen */}
       <div className="flex items-center gap-2 text-sm flex-wrap">
         <span className="text-neutral-500">Schrift</span>
@@ -252,6 +337,9 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
                 {first.text}
               </div>
             )
+          const tabLines = block.filter((l): l is Extract<SheetLine, { kind: 'tab' }> => l.kind === 'tab').map((l) => l.text)
+          if (tabLines.length >= 2)
+            return <TabBlock key={bi} block={block} tabLines={tabLines} shift={shift} german={german} onChord={showChord} onPlay={startTab} onStop={stopTab} />
           return (
             <div key={bi} className="overflow-x-auto whitespace-pre -mx-4 px-4">
               {block.map((l, li) => (
@@ -292,6 +380,48 @@ function compressSeq(seq: string[]): string[] {
     if (rep) return out.slice(0, len)
   }
   return out.slice(0, 32)
+}
+
+function TabBlock({
+  block,
+  tabLines,
+  shift,
+  german,
+  onChord,
+  onPlay,
+  onStop,
+}: {
+  block: SheetLine[]
+  tabLines: string[]
+  shift: number
+  german: boolean
+  onChord: (c: string) => void
+  onPlay: (lines: string[], onCol: (c: number) => void) => void
+  onStop: () => void
+}) {
+  const [col, setCol] = useState(-1)
+  const playing = col >= 0
+  return (
+    <div className="my-1">
+      <button
+        type="button"
+        onClick={() => (playing ? onStop() : onPlay(tabLines, setCol))}
+        className="font-sans text-xs rounded border border-sky-300 dark:border-sky-800 text-sky-700 dark:text-sky-300 px-2 py-0.5 mb-1"
+      >
+        {playing ? 'Stopp' : 'Tab abspielen'}
+      </button>
+      <div className="overflow-x-auto whitespace-pre -mx-4 px-4">
+        <div className="relative inline-block min-w-full">
+          {block.map((l, li) => (
+            <Line key={li} line={l} shift={shift} german={german} onChord={onChord} />
+          ))}
+          {playing && (
+            <div className="absolute top-0 bottom-0 w-[1ch] bg-amber-400/40 pointer-events-none" style={{ left: `${col}ch` }} aria-hidden />
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function Line({ line, shift, german, onChord }: { line: SheetLine; shift: number; german: boolean; onChord: (c: string) => void }) {

@@ -55,7 +55,7 @@ export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
           update(i, { state: 'nicht gefunden' })
           continue
         }
-        const song = toSong(r, list[i].query, !ARTIFACT)
+        const song = toSong(r, list[i].query, ARTIFACT ? (r.sources?.length ?? 0) > 0 : true)
         await onFound(song)
         update(i, { state: 'fertig', songId: song.id })
       } catch (err) {
