@@ -7,7 +7,7 @@ import { getShape } from '../lib/chords'
 import { strum } from '../lib/audio'
 import { ChordDiagram } from './ChordDiagram'
 import { parseTab, playTab } from '../lib/tabPlayer'
-import { ARTIFACT } from '../lib/env'
+import { ARTIFACT, UG_CLOUD } from '../lib/env'
 
 interface Props {
   song: Song
@@ -97,7 +97,7 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
       const { fetchUltimateGuitar } = await import('../lib/ugCloud')
       // 1. Echte Tabs von Ultimate Guitar
       let ugNote = ''
-      try {
+      if (UG_CLOUD) try {
         const results = await fetchUltimateGuitar(song.title, song.artist, { signal: ctrl.signal, onStatus: (d) => setPartsMsg(d) })
         const ugText = ugTabsToText(results)
         if (ugText) {
@@ -117,7 +117,7 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
         ugNote = `Ultimate Guitar nicht erreichbar: ${(e as Error).message}`
         setPartsDiag(String((e as Error).message))
       }
-      setPartsMsg(`${ugNote} Frage Claude …`)
+      setPartsMsg(`${ugNote} Frage Claude …`.trim())
       // 2. Rückfall: Claude aus dem Gedächtnis, gegengeprüft
       const { parts, sources, mode, raw, dropped, key } = await searchPartsClaude(song.title, song.artist, ctrl.signal)
       const text = partsToText(parts, key)
@@ -164,7 +164,8 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
     setPartsDiag(null)
     setPartsMsg(`„${name}" unten im Song ergänzt – mit „Tab abspielen" anhören.`)
   }
-  const q = encodeURIComponent([song.title, song.artist].filter(Boolean).join(' '))
+  // Ohne führendes "The": sonst liefert die UG-Suche oft andere Songs (z. B. "Let It Be" statt "Don't Let Me Down")
+  const q = encodeURIComponent([song.title, song.artist.replace(/^the\s+/i, '')].filter(Boolean).join(' '))
 
   const startTab = (lines: string[], onCol: (c: number) => void) => {
     stopTabRef.current?.()
@@ -327,9 +328,9 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
         <section className="rounded-md border border-neutral-200 dark:border-neutral-800 p-3 flex flex-col gap-2">
           <h3 className="font-semibold">Echte Tabs: Riffs, Licks, Picking</h3>
           <p className="text-sm text-neutral-500">
-            Original-Tabs von Lead-, Rhythmus- und zweiter Gitarre – zum Mitlesen und Anhören. Die App holt sie selbst von
-            Ultimate Guitar (dauert ca. 30 Sekunden). Gibt es dort nichts, schreibt Claude nur Spuren auf, die es sicher kennt,
-            und prüft sie in einem zweiten Durchgang.
+            Original-Tabs von Lead-, Rhythmus- und zweiter Gitarre – zum Mitlesen und Anhören. {UG_CLOUD
+              ? ' Die App holt sie selbst von Ultimate Guitar (dauert ca. 30 Sekunden). Gibt es dort nichts, schreibt Claude nur Spuren auf, die es sicher kennt, und prüft sie in einem zweiten Durchgang.'
+              : ' Claude schreibt nur Spuren auf, die es sicher kennt, und prüft sie in einem zweiten Durchgang. Echte Tabs: über den Link unten öffnen und einfügen.'}
           </p>
           {!ARTIFACT ? null : partsState === 'loading' ? (
             <button type="button" onClick={() => partsAbort.current?.abort()} className={btn}>

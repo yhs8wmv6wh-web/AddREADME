@@ -1,6 +1,9 @@
 // Läuft die App als claude.ai-Artefakt (eigener Build-Modus)?
 export const ARTIFACT = import.meta.env.MODE === 'artifact'
 
+/** Abruf von Ultimate Guitar über Claude-Code-Cloud-Sitzungen (braucht Freigabe des Connectors). */
+export const UG_CLOUD = import.meta.env.VITE_UG_CLOUD === '1'
+
 // Minimale Typen für die Laufzeit-Schnittstelle der Artefakte (window.claude).
 export interface DocSnap {
   id: string

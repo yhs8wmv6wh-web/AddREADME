@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { Song } from '../types'
 import { getApiKey } from '../lib/apiKey'
-import { ARTIFACT } from '../lib/env'
+import { ARTIFACT, UG_CLOUD } from '../lib/env'
 
 interface Props {
   onFound: (song: Song) => Promise<void>
@@ -57,12 +57,13 @@ export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
       update(i, { state: 'sucht' })
       try {
         if (ARTIFACT) {
-          // 1. Echte Daten von Ultimate Guitar (über eine Claude-Code-Cloud-Sitzung)
+          // 1. Echte Daten von Ultimate Guitar (nur wenn freigeschaltet) (über eine Claude-Code-Cloud-Sitzung)
           const { fetchUltimateGuitar } = await import('../lib/ugCloud')
           const { ugToSong } = await import('../lib/songFormat')
           const [t, a] = splitQuery(list[i].query)
           let ugNote = ''
           try {
+            if (!UG_CLOUD) throw new Error('nicht freigeschaltet')
             const results = await fetchUltimateGuitar(t, a, { signal: ctrl.signal, onStatus: (d) => update(i, { detail: d }) })
             const song = ugToSong(results, list[i].query)
             if (song) {
@@ -76,7 +77,8 @@ export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
             ugNote = `Ultimate Guitar: ${(e as Error).message}`
           }
           // 2. Rückfall: Claude aus dem Gedächtnis
-          update(i, { detail: `${ugNote} – frage Claude …` })
+          if (UG_CLOUD) update(i, { detail: `${ugNote} – frage Claude …` })
+          else ugNote = ''
           const r2 = await searchSongClaude(list[i].query, ctrl.signal)
           if (!r2.found || r2.sections.length === 0) {
             update(i, { state: 'nicht gefunden', detail: ugNote })
