@@ -1,0 +1,320 @@
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import type { Song } from '../types'
+import { chordSequence, parseSheet, renderTokenText, tokenChord, transitions, uniqueChords, type SheetLine } from '../lib/sheet'
+import { displayChord, transposeChord } from '../lib/music'
+import { gripScore, suggestCapo } from '../lib/capo'
+import { getShape } from '../lib/chords'
+import { strum } from '../lib/audio'
+import { ChordDiagram } from './ChordDiagram'
+
+interface Props {
+  song: Song
+  known: string[]
+  german: boolean
+  onBack: () => void
+  onEdit: () => void
+  onChange: (song: Song) => void
+  onPractice: (chords: string[], mode: 'metronome' | 'minute', bpm?: number) => void
+}
+
+const btn =
+  'rounded-md border border-neutral-300 dark:border-neutral-700 px-2.5 py-1.5 text-sm min-w-9 active:bg-neutral-100 dark:active:bg-neutral-800'
+
+export function SongView({ song, known, german, onBack, onEdit, onChange, onPractice }: Props) {
+  const sheet = useMemo(() => parseSheet(song.text), [song.text])
+  // Angezeigt werden die GRIFFE: klingender Akkord minus Kapo.
+  const shift = song.transpose - song.capo
+  const sounding = useMemo(() => uniqueChords(chordSequence(sheet, song.transpose)), [sheet, song.transpose])
+  const seq = useMemo(() => chordSequence(sheet, shift), [sheet, shift])
+  const chords = useMemo(() => uniqueChords(seq), [seq])
+  const trans = useMemo(() => transitions(seq), [seq])
+  const capoTip = useMemo(() => suggestCapo(sounding), [sounding])
+  const knownSet = new Set(known)
+  const knownCount = chords.filter((c) => knownSet.has(c)).length
+
+  const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('gitarre.fontSize')) || 15)
+  const [scrolling, setScrolling] = useState(false)
+  const [speed, setSpeed] = useState(20)
+  const [popup, setPopup] = useState<string | null>(null)
+
+  useEffect(() => localStorage.setItem('gitarre.fontSize', String(fontSize)), [fontSize])
+
+  // Auto-Scroll
+  const speedRef = useRef(speed)
+  speedRef.current = speed
+  useEffect(() => {
+    if (!scrolling) return
+    let raf = 0
+    let last = performance.now()
+    let acc = 0
+    const step = (now: number) => {
+      acc += ((now - last) / 1000) * speedRef.current
+      last = now
+      if (acc >= 1) {
+        const px = Math.floor(acc)
+        acc -= px
+        window.scrollBy(0, px)
+        if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+          setScrolling(false)
+          return
+        }
+      }
+      raf = requestAnimationFrame(step)
+    }
+    raf = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(raf)
+  }, [scrolling])
+
+  // Bildschirm während des Spielens anlassen (wo unterstützt)
+  useEffect(() => {
+    let lock: { release: () => Promise<void> } | null = null
+    const nav = navigator as unknown as { wakeLock?: { request: (t: 'screen') => Promise<{ release: () => Promise<void> }> } }
+    nav.wakeLock?.request('screen').then((l) => (lock = l)).catch(() => {})
+    return () => void lock?.release().catch(() => {})
+  }, [])
+
+  const set = (patch: Partial<Song>) => onChange({ ...song, ...patch, updatedAt: Date.now() })
+  const showChord = (c: string) => {
+    const s = getShape(c)
+    if (s) strum(s.frets)
+    setPopup(c)
+  }
+
+  // Zeilen zu Blöcken gruppieren (Akkord- + Textzeile scrollen gemeinsam waagerecht)
+  const blocks = useMemo(() => {
+    const out: SheetLine[][] = []
+    let cur: SheetLine[] = []
+    for (const l of sheet.lines) {
+      if (l.kind === 'empty' || l.kind === 'section') {
+        if (cur.length) out.push(cur)
+        cur = []
+        out.push([l])
+      } else cur.push(l)
+    }
+    if (cur.length) out.push(cur)
+    return out
+  }, [sheet])
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <button type="button" onClick={onBack} className="text-sm text-neutral-500 mb-1">
+            ← Songs
+          </button>
+          <h2 className="font-serif text-2xl leading-tight break-words">{song.title}</h2>
+          {song.artist && <p className="text-neutral-500 dark:text-neutral-400">{song.artist}</p>}
+        </div>
+        <button type="button" onClick={onEdit} className={btn}>
+          Bearbeiten
+        </button>
+      </div>
+
+      {/* Steuerung */}
+      <div className="grid grid-cols-2 gap-2 text-sm">
+        <Stepper
+          label="Tonart"
+          value={song.transpose === 0 ? 'Original' : (song.transpose > 0 ? '+' : '') + song.transpose}
+          onMinus={() => set({ transpose: song.transpose - 1 })}
+          onPlus={() => set({ transpose: song.transpose + 1 })}
+        />
+        <Stepper
+          label="Kapo"
+          value={song.capo === 0 ? 'ohne' : `${song.capo}. Bund`}
+          onMinus={() => set({ capo: Math.max(0, song.capo - 1) })}
+          onPlus={() => set({ capo: Math.min(9, song.capo + 1) })}
+        />
+      </div>
+      {sheet.capo !== undefined && sheet.capo > 0 && sheet.capo !== song.capo && (
+        <button
+          type="button"
+          onClick={() => set({ capo: sheet.capo!, transpose: sheet.capo! })}
+          className="text-left text-sm rounded-md bg-sky-50 dark:bg-sky-950/30 text-sky-800 dark:text-sky-300 px-3 py-2"
+        >
+          Laut Vorlage wird mit Kapo im {sheet.capo}. Bund gespielt. Antippen zum Übernehmen – die Griffe bleiben dann genau wie
+          im Text.
+        </button>
+      )}
+      {capoTip.capo !== song.capo && capoTip.score < gripScore(sounding, song.capo) && chords.length > 0 && (
+        <button
+          type="button"
+          onClick={() => set({ capo: capoTip.capo })}
+          className="text-left text-sm rounded-md bg-teal-50 dark:bg-teal-950/30 text-teal-800 dark:text-teal-300 px-3 py-2"
+        >
+          Tipp: Mit {capoTip.capo === 0 ? 'ohne Kapo' : `Kapo im ${capoTip.capo}. Bund`} brauchst du einfachere Griffe (
+          {uniqueChords(sounding.map((c) => transposeChord(c, -capoTip.capo)))
+            .map((c) => displayChord(c, german))
+            .join(', ')}
+          ). Antippen zum Übernehmen.
+        </button>
+      )}
+
+      {/* Akkorde des Songs */}
+      {chords.length > 0 && (
+        <section>
+          <div className="flex items-baseline justify-between mb-1">
+            <h3 className="font-semibold">Griffe in diesem Song</h3>
+            <span className="text-xs text-neutral-500">
+              {knownCount}/{chords.length} kannst du schon
+            </span>
+          </div>
+          <div className="grid grid-cols-4 sm:grid-cols-6 gap-1 -mx-1 pb-1">
+            {chords.map((c) => (
+              <ChordDiagram key={c} chord={c} size="md" german={german} highlight={knownSet.has(c) ? 'known' : null} />
+            ))}
+          </div>
+          {song.capo > 0 && (
+            <p className="text-xs text-neutral-500 mt-1">
+              Gezeigt werden die Griffe mit Kapo im {song.capo}. Bund – es klingt {song.capo} Halbtöne höher.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* Üben */}
+      {chords.length > 1 && (
+        <section className="rounded-md border border-neutral-200 dark:border-neutral-800 p-3">
+          <h3 className="font-semibold mb-2">Akkordwechsel üben</h3>
+          <div className="flex flex-col gap-1.5">
+            {trans.slice(0, 5).map((t) => (
+              <div key={t.a + t.b} className="flex items-center justify-between gap-2 text-sm">
+                <span>
+                  <strong>{displayChord(t.a, german)}</strong> ↔ <strong>{displayChord(t.b, german)}</strong>
+                  <span className="text-neutral-500"> · {t.count}× im Song</span>
+                </span>
+                <button type="button" className={btn} onClick={() => onPractice([t.a, t.b], 'minute')}>
+                  1-Minute
+                </button>
+              </div>
+            ))}
+          </div>
+          <button
+            type="button"
+            onClick={() => onPractice(compressSeq(seq), 'metronome', song.bpm)}
+            className="mt-3 w-full rounded-md bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 py-2.5 font-medium"
+          >
+            Akkordfolge mit Metronom üben
+          </button>
+        </section>
+      )}
+
+      {song.notes && <p className="text-sm rounded-md bg-neutral-100 dark:bg-neutral-900 px-3 py-2 whitespace-pre-wrap">{song.notes}</p>}
+
+      {/* Anzeige-Optionen */}
+      <div className="flex items-center gap-2 text-sm flex-wrap">
+        <span className="text-neutral-500">Schrift</span>
+        <button type="button" className={btn} onClick={() => setFontSize((f) => Math.max(10, f - 1))}>
+          A−
+        </button>
+        <button type="button" className={btn} onClick={() => setFontSize((f) => Math.min(28, f + 1))}>
+          A+
+        </button>
+        <span className="text-neutral-500 ml-2">Scrollen</span>
+        <button type="button" className={btn} onClick={() => setScrolling((s) => !s)}>
+          {scrolling ? 'Stopp' : 'Start'}
+        </button>
+        <input
+          type="range"
+          min={5}
+          max={80}
+          value={speed}
+          onChange={(e) => setSpeed(Number(e.target.value))}
+          className="w-24 accent-amber-500"
+          aria-label="Scroll-Geschwindigkeit"
+        />
+      </div>
+
+      {/* Songtext */}
+      <div className="font-mono leading-snug" style={{ fontSize }}>
+        {blocks.map((block, bi) => {
+          const first = block[0]
+          if (block.length === 1 && first.kind === 'empty') return <div key={bi} className="h-[1em]" />
+          if (block.length === 1 && first.kind === 'section')
+            return (
+              <div key={bi} className="font-sans font-semibold text-sm uppercase tracking-wide text-neutral-500 mt-3 mb-1">
+                {first.text}
+              </div>
+            )
+          return (
+            <div key={bi} className="overflow-x-auto whitespace-pre -mx-4 px-4">
+              {block.map((l, li) => (
+                <Line key={li} line={l} shift={shift} german={german} onChord={showChord} />
+              ))}
+            </div>
+          )
+        })}
+      </div>
+
+      {sheet.lines.some((l) => l.kind === 'tab') && shift !== 0 && (
+        <p className="text-xs text-neutral-500">Hinweis: Tabs werden nicht transponiert – sie gelten für die Originaltonart ohne Kapo.</p>
+      )}
+
+      {popup && (
+        <div className="fixed inset-0 z-30 bg-black/40 flex items-end justify-center" onClick={() => setPopup(null)}>
+          <div className="bg-white dark:bg-neutral-900 rounded-t-xl w-full max-w-2xl p-4 pb-8 flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+            <ChordDiagram chord={popup} size="lg" german={german} />
+            <p className="text-xs text-neutral-500 mt-1">Antippen zum Anhören</p>
+            <button type="button" onClick={() => setPopup(null)} className={btn + ' mt-3'}>
+              Schließen
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Für den Metronom-Trainer: direkte Wiederholungen entfernen, max. 32 Akkorde. */
+function compressSeq(seq: string[]): string[] {
+  const out: string[] = []
+  for (const c of seq) if (out[out.length - 1] !== c) out.push(c)
+  // Wiederholt sich die ganze Folge (z. B. Strophe = Strophe), nur den ersten Durchlauf
+  for (let len = 2; len <= out.length / 2; len++) {
+    let rep = true
+    for (let i = len; i < out.length; i++) if (out[i] !== out[i % len]) rep = false
+    if (rep) return out.slice(0, len)
+  }
+  return out.slice(0, 32)
+}
+
+function Line({ line, shift, german, onChord }: { line: SheetLine; shift: number; german: boolean; onChord: (c: string) => void }) {
+  if (line.kind === 'lyrics') return <div>{line.text || ' '}</div>
+  if (line.kind === 'tab') return <div className="text-sky-700 dark:text-sky-300">{line.text}</div>
+  if (line.kind !== 'chords') return null
+
+  // Akkorde an ihre Originalspalte setzen; wenn ein Name länger wird, rutscht der nächste nach.
+  const parts: ReactNode[] = []
+  let pos = 0
+  line.tokens.forEach((t, i) => {
+    const col = Math.max(t.col, pos === 0 ? 0 : pos + 1)
+    if (col > pos) parts.push(' '.repeat(col - pos))
+    const text = t.chord ? displayChord(renderTokenText(t, shift), german) : t.text
+    if (t.chord) {
+      const c = tokenChord(t, shift)
+      parts.push(
+        <button key={i} type="button" onClick={() => onChord(c)} className="font-bold text-amber-600 dark:text-amber-400 font-mono">
+          {text}
+        </button>,
+      )
+    } else parts.push(<span key={i} className="text-neutral-500">{text}</span>)
+    pos = col + text.length
+  })
+  return <div>{parts}</div>
+}
+
+function Stepper({ label, value, onMinus, onPlus }: { label: string; value: string; onMinus: () => void; onPlus: () => void }) {
+  return (
+    <div className="flex items-center justify-between gap-1 rounded-md border border-neutral-200 dark:border-neutral-800 px-2 py-1.5">
+      <button type="button" onClick={onMinus} className="px-2 text-lg leading-none" aria-label={`${label} runter`}>
+        −
+      </button>
+      <div className="text-center leading-tight">
+        <div className="text-[11px] text-neutral-500">{label}</div>
+        <div className="font-medium">{value}</div>
+      </div>
+      <button type="button" onClick={onPlus} className="px-2 text-lg leading-none" aria-label={`${label} hoch`}>
+        +
+      </button>
+    </div>
+  )
+}

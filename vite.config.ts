@@ -34,10 +34,10 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,woff2}'],
         maximumFileSizeToCacheInBytes: 8 * 1024 * 1024,
-        // Die Bücher- und die Fremdwörter-App liegen unter eigenen Unterpfaden
+        // Die Bücher-, Fremdwörter- und Gitarre-App liegen unter eigenen Unterpfaden
         // und haben jeweils einen eigenen Service Worker – hier nicht abfangen,
         // sonst würde die Kulturliste-Seite über diese Bereiche gelegt.
-        navigateFallbackDenylist: [/^\/AddREADME\/buecher\//, /^\/AddREADME\/fremdwoerter\//],
+        navigateFallbackDenylist: [/^\/AddREADME\/buecher\//, /^\/AddREADME\/fremdwoerter\//, /^\/AddREADME\/gitarre\//],
       },
     }),
   ],
