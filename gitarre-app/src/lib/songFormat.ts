@@ -166,8 +166,13 @@ export function ugTabsToText(results: UgResult[]): string {
   results
     .filter((r) => r.type === 'Tabs' && !r.error && r.content.trim())
     .forEach((r, i) => {
-      const part = r.part ? ` – ${r.part}` : ''
-      out.push(`[Gitarren-Tab ${i + 1}${part} (Ultimate Guitar, ${stars(r)})]`, r.content.trim(), '')
+      const label = (r.part || 'haupt')
+        .replace(/^live /, 'Live: ')
+        .replace(/\bhaupt\b/, 'Haupt-Tab (Riffs & Picking)')
+        .replace(/\bsolo\b/, 'Solo')
+        .replace(/\bintro\b/, 'Intro')
+        .replace(/\briff\b/, 'Riff')
+      out.push(`[${label} – Tab ${i + 1} (Ultimate Guitar, ${stars(r)})]`, r.content.trim(), '')
     })
   return out.join('\n').trim()
 }

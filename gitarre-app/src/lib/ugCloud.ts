@@ -48,7 +48,17 @@ for x in qs:
     if m:
         res=m; break
 def score(r): return (r.get('rating') or 0)*min(r.get('votes') or 0,500)
-tabs=sorted([r for r in res if r.get('type')=='Tabs'],key=score,reverse=True)[:n]
+# Pro Spur-Art (Haupt-Tab, Solo, Intro, Riff, Live ...) jeweils die beste Version
+def kind(r):
+    nm=(r.get('song_name','')+' '+(r.get('part') or '')+' '+r.get('tab_url','')).lower()
+    k=[w for w in ('solo','intro','riff','outro','lead','fingerstyle','acoustic') if w in nm]
+    return ('live ' if 'live' in nm else '')+(' '.join(k) or 'haupt')
+best={}
+for r in sorted([r for r in res if r.get('type')=='Tabs'],key=score,reverse=True):
+    if len(best.setdefault(kind(r),[]))<2: best[kind(r)].append(r)
+# beste Version jeder Spur-Art zuerst, dann jeweils die zweitbeste als Alternative
+tabs=[g[0] for g in best.values()]+[g[1] for g in best.values() if len(g)>1]
+tabs=sorted(tabs[:max(n,5)],key=lambda r:(kind(r)!='haupt',kind(r),-score(r)))
 chords=sorted([r for r in res if r.get('type')=='Chords'],key=score,reverse=True)[:1]
 CH=re.compile(r'^\(?[A-H][#b]?(m|maj|min|dim|aug|sus|add|M|[0-9]|#|b|\+|\(|\))*(/[A-H][#b]?)?\)?,?$')
 def keep(c):
@@ -68,8 +78,8 @@ for r in tabs+chords:
         c=d['tab_view']['wiki_tab']['content']
         c=re.sub(r'\[/?(ch|tab)\]','',c).replace('\r','')
         c=keep(c)
-        out.append({'url':r['tab_url'],'type':r.get('type'),'part':r.get('part') or '','rating':round(r.get('rating') or 0,2),'votes':r.get('votes') or 0,
-                    'song':r.get('song_name',''),'artist':r.get('artist_name',''),'content':c[:9000]})
+        out.append({'url':r['tab_url'],'type':r.get('type'),'part':(kind(r) if r.get('type')=='Tabs' else '')+((' – '+r['version_description'][:80]) if r.get('version_description') else ''),'rating':round(r.get('rating') or 0,2),'votes':r.get('votes') or 0,
+                    'song':r.get('song_name',''),'artist':r.get('artist_name',''),'content':c[:6000]})
     except Exception as e:
         out.append({'url':r['tab_url'],'error':str(e)[:200]})
 print('<<<UGJSON'); print(json.dumps({'query':q,'results':out},ensure_ascii=False)); print('UGJSON>>>')
