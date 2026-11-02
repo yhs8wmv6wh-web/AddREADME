@@ -1,0 +1,126 @@
+import { useRef, useState } from 'react'
+import type { Song } from '../types'
+import { getApiKey } from '../lib/apiKey'
+
+interface Props {
+  onFound: (song: Song) => Promise<void>
+  onOpen: (id: string) => void
+  onNeedKey: () => void
+}
+
+interface Job {
+  query: string
+  state: 'wartet' | 'sucht' | 'fertig' | 'fehler' | 'nicht gefunden'
+  songId?: string
+  error?: string
+}
+
+export function SongSearch({ onFound, onOpen, onNeedKey }: Props) {
+  const [input, setInput] = useState('')
+  const [jobs, setJobs] = useState<Job[]>([])
+  const [running, setRunning] = useState(false)
+  const abort = useRef<AbortController | null>(null)
+
+  const update = (i: number, patch: Partial<Job>) => setJobs((prev) => prev.map((j, k) => (k === i ? { ...j, ...patch } : j)))
+
+  const run = async () => {
+    const key = getApiKey()
+    if (!key) {
+      onNeedKey()
+      return
+    }
+    const queries = input
+      .split('\n')
+      .map((q) => q.trim())
+      .filter(Boolean)
+      .slice(0, 20)
+    if (queries.length === 0) return
+    const list: Job[] = queries.map((query) => ({ query, state: 'wartet' }))
+    setJobs(list)
+    setRunning(true)
+    // SDK erst bei Bedarf laden (hält den Start der App schlank)
+    const { SongSearchError, searchSong, toSong } = await import('../lib/songSearch')
+    const ctrl = new AbortController()
+    abort.current = ctrl
+    for (let i = 0; i < list.length; i++) {
+      if (ctrl.signal.aborted) break
+      update(i, { state: 'sucht' })
+      try {
+        const r = await searchSong(list[i].query, key, ctrl.signal)
+        if (!r.found || r.sections.length === 0) {
+          update(i, { state: 'nicht gefunden' })
+          continue
+        }
+        const song = toSong(r, list[i].query)
+        await onFound(song)
+        update(i, { state: 'fertig', songId: song.id })
+      } catch (err) {
+        if (ctrl.signal.aborted) {
+          update(i, { state: 'fehler', error: 'abgebrochen' })
+          break
+        }
+        update(i, { state: 'fehler', error: err instanceof SongSearchError ? err.message : 'Unbekannter Fehler' })
+        if (err instanceof SongSearchError && /Schlüssel/.test(err.message)) break
+      }
+    }
+    setRunning(false)
+    setInput('')
+  }
+
+  return (
+    <section className="rounded-md border border-neutral-200 dark:border-neutral-800 p-3 flex flex-col gap-2">
+      <h3 className="font-semibold">Song automatisch suchen</h3>
+      <p className="text-sm text-neutral-500 leading-relaxed">
+        Titel und Interpret eingeben – die KI sucht im Netz die Akkorde, den Aufbau, Kapo und Schlagmuster und legt den Song an.
+        Mehrere Songs: einer pro Zeile.
+      </p>
+      <textarea
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        rows={2}
+        placeholder={'z. B. Wonderwall – Oasis\nHallelujah – Jeff Buckley'}
+        className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-transparent px-3 py-2"
+        disabled={running}
+      />
+      {running ? (
+        <button type="button" onClick={() => abort.current?.abort()} className="rounded-md border border-neutral-300 dark:border-neutral-700 py-2.5">
+          Abbrechen
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={run}
+          disabled={!input.trim()}
+          className="rounded-md bg-amber-500 text-neutral-900 py-2.5 font-semibold disabled:opacity-40"
+        >
+          Suchen &amp; anlegen
+        </button>
+      )}
+      {jobs.length > 0 && (
+        <ul className="text-sm flex flex-col gap-1">
+          {jobs.map((j, i) => (
+            <li key={i} className="flex justify-between gap-2">
+              <span className="truncate">{j.query}</span>
+              {j.state === 'fertig' && j.songId ? (
+                <button type="button" onClick={() => onOpen(j.songId!)} className="text-teal-600 dark:text-teal-400 underline shrink-0">
+                  öffnen
+                </button>
+              ) : (
+                <span
+                  className={`shrink-0 ${j.state === 'fehler' || j.state === 'nicht gefunden' ? 'text-red-600' : 'text-neutral-500'}`}
+                  title={j.error}
+                >
+                  {j.state === 'sucht' ? 'sucht … (bis ~1 Min.)' : j.state === 'fehler' ? j.error : j.state}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="text-xs text-neutral-500">
+        Ergebnis ist eine KI-Recherche mit Quellenangabe – Akkorde können von der Aufnahme abweichen. Kosten grob geschätzt: 10–30 Cent pro
+        Song über deinen Anthropic-Schlüssel (Websuche + Modell).
+      </p>
+    </section>
+  )
+}

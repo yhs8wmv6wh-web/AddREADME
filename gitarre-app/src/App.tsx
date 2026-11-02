@@ -21,6 +21,7 @@ import { Tuner } from './components/Tuner'
 import { StorageNotice } from './components/StorageNotice'
 import { BackupBar } from './components/BackupBar'
 import { UpdatePrompt } from './components/UpdatePrompt'
+import { ApiKeySettings } from './components/ApiKeySettings'
 
 type Tab = 'songs' | 'ueben' | 'akkorde' | 'stimmen' | 'mehr'
 
@@ -141,6 +142,11 @@ function App() {
             window.scrollTo(0, 0)
           }}
           onAdd={() => setEditing('new')}
+          onFound={updateSong}
+          onNeedKey={() => {
+            alert('Für die automatische Suche brauchst du einen Anthropic-API-Schlüssel. Bitte unter „Mehr" eintragen.')
+            goTab('mehr')
+          }}
         />
       )
   } else if (tab === 'ueben')
@@ -192,7 +198,7 @@ function App() {
           <h2 className="font-serif text-xl">So übst du am besten</h2>
           <ol className="list-decimal pl-5 flex flex-col gap-1">
             <li>Gitarre stimmen (Tab „Stimmen").</li>
-            <li>Lieblingssong einfügen und schauen, welche Griffe fehlen.</li>
+            <li>Lieblingssong suchen lassen (oder einfügen) und schauen, welche Griffe fehlen.</li>
             <li>Kapo-Tipp nutzen, falls der Song Barrés hat.</li>
             <li>Die häufigsten Wechsel des Songs im 1-Minuten-Trainer üben – täglich 1–2 Runden pro Paar.</li>
             <li>Dann die ganze Akkordfolge mit Metronom: langsam starten, erst steigern, wenn es sauber klingt.</li>
@@ -200,6 +206,7 @@ function App() {
           </ol>
           <p className="text-neutral-500">Lieber jeden Tag 15 Minuten als einmal pro Woche zwei Stunden.</p>
         </section>
+        <ApiKeySettings />
         <StorageNotice status={storageStatus} standalone={standalone} />
         <BackupBar
           onImported={async (n) => {

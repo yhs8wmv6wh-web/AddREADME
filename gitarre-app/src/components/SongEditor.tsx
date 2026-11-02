@@ -54,6 +54,7 @@ export function SongEditor({ song, german, onSave, onCancel, onDelete }: Props) 
       bpm: Number(bpm) > 0 ? Math.round(Number(bpm)) : undefined,
       notes: notes.trim() || undefined,
       example: song?.example,
+      sources: song?.sources,
       createdAt: song?.createdAt ?? now,
       updatedAt: now,
     })

@@ -12,6 +12,8 @@ export interface Song {
   /** Notizen, z. B. Schlagmuster */
   notes?: string
   example?: boolean
+  /** Quellen-URLs bei automatisch gesuchten Songs */
+  sources?: string[]
   createdAt: number
   updatedAt: number
 }

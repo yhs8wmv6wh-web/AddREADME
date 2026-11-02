@@ -198,7 +198,24 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
         </section>
       )}
 
-      {song.notes && <p className="text-sm rounded-md bg-neutral-100 dark:bg-neutral-900 px-3 py-2 whitespace-pre-wrap">{song.notes}</p>}
+      {(song.notes || song.sources?.length) && (
+        <div className="text-sm rounded-md bg-neutral-100 dark:bg-neutral-900 px-3 py-2">
+          {song.notes && <p className="whitespace-pre-wrap">{song.notes}</p>}
+          {song.sources && song.sources.length > 0 && (
+            <p className="mt-1 text-xs text-neutral-500 break-all">
+              Quellen:{' '}
+              {song.sources.map((u, i) => (
+                <span key={u}>
+                  {i > 0 && ' · '}
+                  <a href={u} target="_blank" rel="noreferrer" className="underline">
+                    {u.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)}
+                  </a>
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Anzeige-Optionen */}
       <div className="flex items-center gap-2 text-sm flex-wrap">
