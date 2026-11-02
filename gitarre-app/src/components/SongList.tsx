@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { Song } from '../types'
 import { chordSequence, parseSheet, uniqueChords } from '../lib/sheet'
 import { displayChord } from '../lib/music'
+import { SongSearch } from './SongSearch'
 
 interface Props {
   songs: Song[]
@@ -9,9 +10,11 @@ interface Props {
   german: boolean
   onOpen: (id: string) => void
   onAdd: () => void
+  onFound: (song: Song) => Promise<void>
+  onNeedKey: () => void
 }
 
-export function SongList({ songs, known, german, onOpen, onAdd }: Props) {
+export function SongList({ songs, known, german, onOpen, onAdd, onFound, onNeedKey }: Props) {
   const [q, setQ] = useState('')
   const [onlyPlayable, setOnlyPlayable] = useState(false)
   const knownSet = useMemo(() => new Set(known), [known])
@@ -35,12 +38,13 @@ export function SongList({ songs, known, german, onOpen, onAdd }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
+      <SongSearch onFound={onFound} onOpen={onOpen} onNeedKey={onNeedKey} />
       <button
         type="button"
         onClick={onAdd}
-        className="rounded-md bg-neutral-900 dark:bg-neutral-100 text-white dark:text-neutral-900 py-3 font-medium"
+        className="rounded-md border border-neutral-300 dark:border-neutral-700 py-2.5 text-sm"
       >
-        + Song hinzufügen
+        + Song von Hand einfügen
       </button>
 
       {songs.length > 3 && (
@@ -92,8 +96,8 @@ export function SongList({ songs, known, german, onOpen, onAdd }: Props) {
       {filtered.length === 0 && <p className="text-center text-sm text-neutral-500 py-6">Keine Songs gefunden.</p>}
 
       <div className="rounded-md bg-neutral-100 dark:bg-neutral-900 px-3 py-3 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
-        <strong>So kommen deine Lieblingssongs rein:</strong> Song z. B. auf Ultimate Guitar, Songsterr oder in einem Songbuch
-        suchen, Akkorde/Tab-Text kopieren und über „Song hinzufügen" einfügen. Die App erkennt Akkordzeilen, Tabs und
+        <strong>Von Hand:</strong> Akkorde/Tab-Text z. B. von Ultimate Guitar kopieren und über „Song von Hand einfügen"
+        einfügen. Die App erkennt Akkordzeilen, Tabs und
         Abschnitte automatisch – dann kannst du transponieren, Kapo umrechnen lassen und die Wechsel gezielt üben.
       </div>
     </div>

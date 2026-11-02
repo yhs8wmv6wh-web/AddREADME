@@ -6,6 +6,8 @@ import { gripScore, suggestCapo } from '../lib/capo'
 import { getShape } from '../lib/chords'
 import { strum } from '../lib/audio'
 import { ChordDiagram } from './ChordDiagram'
+import { parseTab, playTab } from '../lib/tabPlayer'
+import { ARTIFACT, UG_CLOUD } from '../lib/env'
 
 interface Props {
   song: Song
@@ -35,6 +37,14 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
   const [fontSize, setFontSize] = useState(() => Number(localStorage.getItem('gitarre.fontSize')) || 15)
   const [scrolling, setScrolling] = useState(false)
   const [speed, setSpeed] = useState(20)
+  const [tabBpm, setTabBpm] = useState(song.bpm || 80)
+  const [partsState, setPartsState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [partsMsg, setPartsMsg] = useState<string | null>(null)
+  const [partsDiag, setPartsDiag] = useState<string | null>(null)
+  const [showDiag, setShowDiag] = useState(false)
+  const partsAbort = useRef<AbortController | null>(null)
+  const stopTabRef = useRef<(() => void) | null>(null)
+  useEffect(() => () => stopTabRef.current?.(), [])
   const [popup, setPopup] = useState<string | null>(null)
 
   useEffect(() => localStorage.setItem('gitarre.fontSize', String(fontSize)), [fontSize])
@@ -74,6 +84,103 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
   }, [])
 
   const set = (patch: Partial<Song>) => onChange({ ...song, ...patch, updatedAt: Date.now() })
+
+  const loadParts = async () => {
+    setPartsState('loading')
+    setPartsMsg(null)
+    setPartsDiag(null)
+    const ctrl = new AbortController()
+    partsAbort.current = ctrl
+    try {
+      const { searchPartsClaude } = await import('../lib/songSearchClaude')
+      const { partsToText, ugTabsToText } = await import('../lib/songFormat')
+      const { fetchUltimateGuitar } = await import('../lib/ugCloud')
+      // 1. Echte Tabs von Ultimate Guitar
+      let ugNote = ''
+      if (UG_CLOUD) try {
+        const results = await fetchUltimateGuitar(song.title, song.artist, { signal: ctrl.signal, onStatus: (d) => setPartsMsg(d) })
+        const ugText = ugTabsToText(results)
+        if (ugText) {
+          const urls = results.filter((r) => r.type === 'Tabs' && !r.error).map((r) => r.url)
+          set({
+            text: song.text.replace(/\s+$/, '') + '\n\n' + ugText,
+            notes: [song.notes, 'Tabs von Ultimate Guitar übernommen (siehe Quellen).'].filter(Boolean).join('\n'),
+            sources: [...new Set([...(song.sources ?? []), ...urls])].slice(0, 8),
+          })
+          setPartsState('idle')
+          setPartsMsg(`${urls.length} Tab(s) von Ultimate Guitar unten im Song ergänzt.`)
+          return
+        }
+        ugNote = 'Ultimate Guitar hat keine Tabs zu diesem Song.'
+      } catch (e) {
+        if (ctrl.signal.aborted) throw e
+        ugNote = `Ultimate Guitar nicht erreichbar: ${(e as Error).message}`
+        setPartsDiag(String((e as Error).message))
+      }
+      setPartsMsg(`${ugNote} Frage Claude …`.trim())
+      // 2. Rückfall: Claude aus dem Gedächtnis, gegengeprüft
+      const { parts, sources, mode, raw, dropped, key } = await searchPartsClaude(song.title, song.artist, ctrl.signal)
+      const text = partsToText(parts, key)
+      if (!text) {
+        setPartsState('idle')
+        setPartsMsg(
+          mode === 'online'
+            ? 'Claude hat auf den Tab-Seiten keine Spuren gefunden. Öffne die Tab-Seite über die Links unten und füge die Spur ein.'
+            : `${ugNote} Claude kennt keine Spur dieses Songs sicher genug${dropped > 0 ? ` (${dropped} unsichere bzw. bei der Prüfung durchgefallene Spur(en) verworfen)` : ''}. Öffne die Tab-Seite über die Links unten und füge die Spur ein.`,
+        )
+        setPartsDiag(JSON.stringify(raw, null, 2).slice(0, 4000))
+        return
+      }
+      const note =
+        mode === 'online'
+          ? 'Tabs von Online-Tab-Seiten übernommen (siehe Quellen).'
+          : 'Tabs aus dem Gedächtnis von Claude, in einem zweiten Durchgang gegen die Aufnahme geprüft. Trotzdem mit der Aufnahme vergleichen.'
+      set({
+        text: song.text.replace(/\s+$/, '') + '\n\n' + text,
+        notes: [song.notes, note].filter(Boolean).join('\n'),
+        sources: [...new Set([...(song.sources ?? []), ...sources.filter((u) => /^https?:\/\//.test(u))])].slice(0, 8),
+      })
+      setPartsState('idle')
+      setPartsMsg(`${parts.length} Spur(en) unten im Song ergänzt${dropped > 0 ? `, ${dropped} unsichere verworfen` : ''}.`)
+    } catch (err) {
+      setPartsState('error')
+      setPartsMsg(err instanceof Error ? err.message : 'Fehler beim Laden der Spuren.')
+      const e = err as { code?: string; message?: string; text?: string }
+      setPartsDiag(JSON.stringify({ code: e?.code, message: e?.message, text: e?.text?.slice(0, 3000) }, null, 2))
+    }
+  }
+
+  const [pasteName, setPasteName] = useState('Lead-Gitarre')
+  const [pasteText, setPasteText] = useState('')
+  const addPasted = () => {
+    const lines = pasteText.replace(/\r\n?/g, '\n').replace(/\t/g, '    ').split('\n').map((l) => l.replace(/\s+$/, ''))
+    while (lines.length && !lines[0].trim()) lines.shift()
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop()
+    if (lines.length === 0) return
+    const name = (pasteName.trim() || 'Gitarre').replace(/[[\]]/g, '')
+    set({ text: song.text.replace(/\s+$/, '') + '\n\n' + `[${name}]\n` + lines.join('\n') })
+    setPasteText('')
+    setPartsState('idle')
+    setPartsDiag(null)
+    setPartsMsg(`„${name}" unten im Song ergänzt – mit „Tab abspielen" anhören.`)
+  }
+  // Ohne führendes "The": sonst liefert die UG-Suche oft andere Songs (z. B. "Let It Be" statt "Don't Let Me Down")
+  const q = encodeURIComponent([song.title, song.artist.replace(/^the\s+/i, '')].filter(Boolean).join(' '))
+
+  const startTab = (lines: string[], onCol: (c: number) => void) => {
+    stopTabRef.current?.()
+    const { events, width } = parseTab(lines)
+    if (events.length === 0) return
+    const stop = playTab(events, width, 60 / tabBpm / 4, (c) => {
+      onCol(c)
+      if (c < 0 && stopTabRef.current === stop) stopTabRef.current = null
+    })
+    stopTabRef.current = stop
+  }
+  const stopTab = () => {
+    stopTabRef.current?.()
+    stopTabRef.current = null
+  }
   const showChord = (c: string) => {
     const s = getShape(c)
     if (s) strum(s.frets)
@@ -198,7 +305,101 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
         </section>
       )}
 
-      {song.notes && <p className="text-sm rounded-md bg-neutral-100 dark:bg-neutral-900 px-3 py-2 whitespace-pre-wrap">{song.notes}</p>}
+      {(song.notes || song.sources?.length) && (
+        <div className="text-sm rounded-md bg-neutral-100 dark:bg-neutral-900 px-3 py-2">
+          {song.notes && <p className="whitespace-pre-wrap">{song.notes}</p>}
+          {song.sources && song.sources.length > 0 && (
+            <p className="mt-1 text-xs text-neutral-500 break-all">
+              Quellen:{' '}
+              {song.sources.map((u, i) => (
+                <span key={u}>
+                  {i > 0 && ' · '}
+                  <a href={u} target="_blank" rel="noreferrer" className="underline">
+                    {u.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)}
+                  </a>
+                </span>
+              ))}
+            </p>
+          )}
+        </div>
+      )}
+
+      {song.title && (
+        <section className="rounded-md border border-neutral-200 dark:border-neutral-800 p-3 flex flex-col gap-2">
+          <h3 className="font-semibold">Echte Tabs: Riffs, Licks, Picking</h3>
+          <p className="text-sm text-neutral-500">
+            Original-Tabs von Lead-, Rhythmus- und zweiter Gitarre – zum Mitlesen und Anhören. {UG_CLOUD
+              ? ' Die App holt sie selbst von Ultimate Guitar (dauert ca. 30 Sekunden). Gibt es dort nichts, schreibt Claude nur Spuren auf, die es sicher kennt, und prüft sie in einem zweiten Durchgang.'
+              : ' Claude schreibt nur Spuren auf, die es sicher kennt, und prüft sie in einem zweiten Durchgang. Echte Tabs: über den Link unten öffnen und einfügen.'}
+          </p>
+          {!ARTIFACT ? null : partsState === 'loading' ? (
+            <button type="button" onClick={() => partsAbort.current?.abort()} className={btn}>
+              Läuft … – Abbrechen
+            </button>
+          ) : (
+            <button type="button" onClick={loadParts} className={btn}>
+              Tabs holen
+            </button>
+          )}
+          {partsMsg && <p className={`text-sm ${partsState === 'error' ? 'text-red-600' : 'text-neutral-600 dark:text-neutral-400'}`}>{partsMsg}</p>}
+          {partsDiag && (
+            <div className="text-xs">
+              <button type="button" className="underline text-neutral-500" onClick={() => setShowDiag((v) => !v)}>
+                {showDiag ? 'Diagnose ausblenden' : 'Diagnose anzeigen'}
+              </button>
+              {showDiag && (
+                <pre className="mt-1 max-h-60 overflow-auto whitespace-pre-wrap break-all rounded bg-neutral-100 dark:bg-neutral-900 p-2">{partsDiag}</pre>
+              )}
+            </div>
+          )}
+          <div className="flex flex-col gap-2 pt-2 border-t border-neutral-200 dark:border-neutral-800">
+            <span className="text-sm text-neutral-600 dark:text-neutral-400">
+              Überall (auch iPhone): Tab-Seite öffnen, gewünschte Spur markieren und kopieren, hier einfügen.
+            </span>
+            <div className="flex flex-wrap gap-2 text-sm">
+              <a href={`https://www.ultimate-guitar.com/search.php?search_type=title&value=${q}`} target="_blank" rel="noreferrer" className="underline text-sky-700 dark:text-sky-300">
+                Ultimate Guitar: Tabs suchen
+              </a>
+              <a href={`https://www.songsterr.com/?pattern=${q}`} target="_blank" rel="noreferrer" className="underline text-sky-700 dark:text-sky-300">
+                Songsterr (Spuren einzeln, zum Anhören)
+              </a>
+            </div>
+            <input
+              id="paste-name"
+              value={pasteName}
+              onChange={(e) => setPasteName(e.target.value)}
+              placeholder="Spur, z. B. Lead-Gitarre, Intro-Riff, Gitarre 2"
+              className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-transparent px-3 py-2 text-sm"
+            />
+            <textarea
+              id="paste-tab"
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              rows={5}
+              spellCheck={false}
+              placeholder={'Tab hier einfügen, z. B.\ne|-------0---|\nB|-----1---1-|\n…'}
+              className="rounded-md border border-neutral-300 dark:border-neutral-700 bg-transparent px-3 py-2 font-mono text-xs whitespace-pre overflow-x-auto"
+            />
+            <button type="button" onClick={addPasted} disabled={!pasteText.trim()} className={btn + ' disabled:opacity-40'}>
+              Tab zum Song hinzufügen
+            </button>
+          </div>
+        </section>
+      )}
+
+      {sheet.lines.some((l) => l.kind === 'tab') && (
+        <div className="flex items-center gap-2 text-sm flex-wrap">
+          <span className="text-neutral-500">Tab-Tempo</span>
+          <button type="button" className={btn} onClick={() => setTabBpm((b) => Math.max(30, b - 10))}>
+            −10
+          </button>
+          <span className="tabular-nums font-medium w-16 text-center">{tabBpm} BPM</span>
+          <button type="button" className={btn} onClick={() => setTabBpm((b) => Math.min(240, b + 10))}>
+            +10
+          </button>
+          <span className="text-xs text-neutral-500">ein „-“ ≈ eine Sechzehntel</span>
+        </div>
+      )}
 
       {/* Anzeige-Optionen */}
       <div className="flex items-center gap-2 text-sm flex-wrap">
@@ -235,6 +436,9 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
                 {first.text}
               </div>
             )
+          const tabLines = block.filter((l): l is Extract<SheetLine, { kind: 'tab' }> => l.kind === 'tab').map((l) => l.text)
+          if (tabLines.length >= 2)
+            return <TabBlock key={bi} block={block} tabLines={tabLines} shift={shift} german={german} onChord={showChord} onPlay={startTab} onStop={stopTab} />
           return (
             <div key={bi} className="overflow-x-auto whitespace-pre -mx-4 px-4">
               {block.map((l, li) => (
@@ -275,6 +479,48 @@ function compressSeq(seq: string[]): string[] {
     if (rep) return out.slice(0, len)
   }
   return out.slice(0, 32)
+}
+
+function TabBlock({
+  block,
+  tabLines,
+  shift,
+  german,
+  onChord,
+  onPlay,
+  onStop,
+}: {
+  block: SheetLine[]
+  tabLines: string[]
+  shift: number
+  german: boolean
+  onChord: (c: string) => void
+  onPlay: (lines: string[], onCol: (c: number) => void) => void
+  onStop: () => void
+}) {
+  const [col, setCol] = useState(-1)
+  const playing = col >= 0
+  return (
+    <div className="my-1">
+      <button
+        type="button"
+        onClick={() => (playing ? onStop() : onPlay(tabLines, setCol))}
+        className="font-sans text-xs rounded border border-sky-300 dark:border-sky-800 text-sky-700 dark:text-sky-300 px-2 py-0.5 mb-1"
+      >
+        {playing ? 'Stopp' : 'Tab abspielen'}
+      </button>
+      <div className="overflow-x-auto whitespace-pre -mx-4 px-4">
+        <div className="relative inline-block min-w-full">
+          {block.map((l, li) => (
+            <Line key={li} line={l} shift={shift} german={german} onChord={onChord} />
+          ))}
+          {playing && (
+            <div className="absolute top-0 bottom-0 w-[1ch] bg-amber-400/40 pointer-events-none" style={{ left: `${col}ch` }} aria-hidden />
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function Line({ line, shift, german, onChord }: { line: SheetLine; shift: number; german: boolean; onChord: (c: string) => void }) {

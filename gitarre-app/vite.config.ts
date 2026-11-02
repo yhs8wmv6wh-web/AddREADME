@@ -6,7 +6,19 @@ import { VitePWA } from 'vite-plugin-pwa'
 const base = process.env.GITHUB_PAGES ? '/AddREADME/gitarre/' : '/'
 
 // https://vite.dev/config/
-export default defineConfig({
+// Modus "artifact": eine einzige HTML-Datei für claude.ai-Artefakte (ohne PWA).
+export default defineConfig(({ mode }) => mode === 'artifact' ? {
+  base: './',
+  plugins: [react(), tailwindcss()],
+  resolve: { alias: { 'virtual:pwa-register/react': '/src/stubs/pwa-register.ts' } },
+  build: {
+    outDir: 'dist-artifact',
+    cssCodeSplit: false,
+    assetsInlineLimit: 100_000_000,
+    modulePreload: false,
+    rolldownOptions: { output: { codeSplitting: false } },
+  },
+} : {
   base,
   plugins: [
     react(),
