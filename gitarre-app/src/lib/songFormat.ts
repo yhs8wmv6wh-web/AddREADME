@@ -1,4 +1,5 @@
 import type { Song } from '../types'
+import { checkTab } from './tabCheck'
 
 export interface Section {
   name: string
@@ -68,16 +69,24 @@ export function extractParts(r: unknown): GuitarPart[] {
 }
 
 /** Gitarrenspuren als Song-Text: Abschnitt + Technik-Zeile + Tab-Blöcke. */
-export function partsToText(parts: GuitarPart[] | undefined): string {
+export function partsToText(parts: GuitarPart[] | undefined, key = ''): string {
   if (!Array.isArray(parts)) return ''
   const out: string[] = []
   for (const p of parts) {
     const tab = tabText(p?.tab)
     if (!tab.trim()) continue
-    const label = p.accuracy && /ungef|niedrig|mittel|approx/i.test(p.accuracy) ? ' (ungefähr)' : ''
+    const acc = p.accuracy ?? ''
+    const label = /korrigiert/.test(acc)
+      ? ' (aus dem Gedächtnis, bei Prüfung korrigiert)'
+      : /geprüft/.test(acc)
+        ? ' (aus dem Gedächtnis, gegengeprüft)'
+        : /ungef|niedrig|mittel|approx/i.test(acc)
+          ? ' (ungefähr)'
+          : ''
     const name = ((typeof p.name === 'string' && p.name.trim() ? p.name : 'Gitarre') + label).replace(/[[\]]/g, '')
     out.push(`[${name}]`)
     if (typeof p.technique === 'string' && p.technique.trim()) out.push(`Technik: ${p.technique.trim()}`)
+    for (const w of checkTab(tab, key)) out.push(`Hinweis: ${w}`)
     out.push(...tab.trim().split('\n').map((l) => l.replace(/\s+$/, '')), '')
   }
   return out.join('\n').trim()
@@ -117,7 +126,7 @@ export function toSong(raw: FoundSong, query: string, viaWeb = true): Song {
   if (r.riffTab.trim()) {
     lines.push('[Riff]', ...r.riffTab.trim().split('\n'), '')
   }
-  const partsText = partsToText(extractParts(raw))
+  const partsText = partsToText(extractParts(raw), r.key)
   if (partsText) lines.push(partsText, '')
   const info = [
     r.key && `Tonart: ${r.key}`,

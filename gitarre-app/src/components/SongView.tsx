@@ -94,24 +94,29 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
     try {
       const { searchPartsClaude } = await import('../lib/songSearchClaude')
       const { partsToText } = await import('../lib/songFormat')
-      const { parts, sources, mode, raw } = await searchPartsClaude(song.title, song.artist, ctrl.signal)
-      const text = partsToText(parts)
+      const { parts, sources, mode, raw, dropped, key } = await searchPartsClaude(song.title, song.artist, ctrl.signal)
+      const text = partsToText(parts, key)
       if (!text) {
         setPartsState('idle')
         setPartsMsg(
-          `Claude hat auf den Tab-Seiten keine Spuren gefunden (${mode === 'online' ? 'mit Browser' : 'ohne Websuche'}). Öffne die Tab-Seite über die Links unten und füge die Spur ein.`,
+          mode === 'online'
+            ? 'Claude hat auf den Tab-Seiten keine Spuren gefunden. Öffne die Tab-Seite über die Links unten und füge die Spur ein.'
+            : `Claude kennt keine Spur dieses Songs sicher genug${dropped > 0 ? ` (${dropped} unsichere bzw. bei der Prüfung durchgefallene Spur(en) verworfen)` : ''}. Öffne die Tab-Seite über die Links unten und füge die Spur ein.`,
         )
         setPartsDiag(JSON.stringify(raw, null, 2).slice(0, 4000))
         return
       }
-      const note = 'Tabs von Online-Tab-Seiten übernommen (siehe Quellen).'
+      const note =
+        mode === 'online'
+          ? 'Tabs von Online-Tab-Seiten übernommen (siehe Quellen).'
+          : 'Tabs aus dem Gedächtnis von Claude, in einem zweiten Durchgang gegen die Aufnahme geprüft. Trotzdem mit der Aufnahme vergleichen.'
       set({
         text: song.text.replace(/\s+$/, '') + '\n\n' + text,
         notes: [song.notes, note].filter(Boolean).join('\n'),
         sources: [...new Set([...(song.sources ?? []), ...sources.filter((u) => /^https?:\/\//.test(u))])].slice(0, 8),
       })
       setPartsState('idle')
-      setPartsMsg(`${parts.length} Spur(en) unten im Song ergänzt.`)
+      setPartsMsg(`${parts.length} Spur(en) unten im Song ergänzt${dropped > 0 ? `, ${dropped} unsichere verworfen` : ''}.`)
     } catch (err) {
       setPartsState('error')
       setPartsMsg(err instanceof Error ? err.message : 'Fehler beim Laden der Spuren.')
@@ -297,8 +302,9 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
         <section className="rounded-md border border-neutral-200 dark:border-neutral-800 p-3 flex flex-col gap-2">
           <h3 className="font-semibold">Echte Tabs: Riffs, Licks, Picking</h3>
           <p className="text-sm text-neutral-500">
-            Original-Tabs von Lead-, Rhythmus- und zweiter Gitarre – zum Mitlesen und Anhören. Nur aus echten Tab-Seiten, nichts
-            ausgedacht.
+            Original-Tabs von Lead-, Rhythmus- und zweiter Gitarre – zum Mitlesen und Anhören. In der Claude-Desktop-App liest
+            Claude Tab-Seiten online, sonst schreibt es nur Spuren auf, die es sicher kennt, und prüft sie in einem zweiten
+            Durchgang.
           </p>
           {!ARTIFACT ? null : partsState === 'loading' ? (
             <button type="button" onClick={() => partsAbort.current?.abort()} className={btn}>
@@ -306,7 +312,7 @@ export function SongView({ song, known, german, onBack, onEdit, onChange, onPrac
             </button>
           ) : (
             <button type="button" onClick={loadParts} className={btn}>
-              Claude holt die Tabs online (Claude-Desktop-App)
+              Tabs holen
             </button>
           )}
           {partsMsg && <p className={`text-sm ${partsState === 'error' ? 'text-red-600' : 'text-neutral-600 dark:text-neutral-400'}`}>{partsMsg}</p>}

@@ -96,17 +96,91 @@ export async function searchSongClaude(query: string, signal?: AbortSignal): Pro
 }
 
 /** Nur die Gitarrenspuren (Lead, Rhythmus, Picking) für einen vorhandenen Song. */
-export async function searchPartsClaude(
-  title: string,
-  artist: string,
-  signal?: AbortSignal,
-): Promise<{ parts: GuitarPart[]; sources: string[]; mode: SearchMode; raw: unknown }> {
-  const { result, mode } = await ask<FoundSong>(
-    `Hole die echten Gitarren-Tabs für: ${title}${artist ? ' – ' + artist : ''}. Öffne bei Ultimate Guitar die Ergebnisse vom Typ "Tab" (nicht "Chords"), bei Bedarf mehrere (z. B. Lead, Solo, Intro). Wichtig sind hier nur "parts". "sections" darf leer bleiben.`,
-    signal,
-    { requireOnline: true },
-  )
-  const parts = extractParts(result)
-  const sources = Array.isArray(result.sources) ? result.sources.filter((u): u is string => typeof u === 'string') : []
-  return { parts, sources, mode, raw: result }
+const MEMORY_PARTS = `Du hast keinen Internetzugang. Schreibe die Gitarrenspuren der ORIGINALAUFNAHME aus deinem Gedächtnis auf – aber nur, wenn du sie wirklich kennst.
+- Nur Spuren, die du Note für Note so kennst, wie sie auf der Aufnahme gespielt werden (z. B. ein bekanntes Intro-Riff, ein bekanntes Solo, das Picking-Muster der Strophe).
+- Keine Vereinfachung, kein "im Stil von", kein Arrangement aus den Akkorden. Lieber eine Spur weglassen als eine falsche liefern.
+- Pro Spur "certainty": "sicher" nur, wenn du dir bei jeder Note sicher bist, sonst "unsicher".
+${RULES}
+Antworte NUR mit JSON:
+{"key": "E-Dur", "parts": [{"name": "Intro-Riff (Lead-Gitarre)", "technique": "Spielweise: Plektrum, Hammer-ons, Bendings …", "tab": "e|…|\\nB|…|\\nG|…|\\nD|…|\\nA|…|\\nE|…|", "certainty": "sicher"}]}
+Kennst du keine Spur sicher: {"key": "…", "parts": []}`
+
+const VERIFY = `Du bist ein strenger Gitarrenlehrer und prüfst Tabs auf Richtigkeit.
+Unten stehen Tabs, die angeblich Spuren der Originalaufnahme sind. Prüfe JEDE Spur Note für Note gegen deine Kenntnis der Aufnahme:
+Stimmen Tonart, Bünde, Saiten, Reihenfolge und Lage? Passt die Spur zu den Akkorden des Songs?
+- "verdict": "stimmt" (unverändert korrekt), "korrigiert" (Fehler gefunden und in "tab" berichtigt) oder "falsch" (nicht die Aufnahme bzw. nicht sicher korrigierbar).
+- "issues": kurze Beschreibung der gefundenen Fehler auf Deutsch, sonst "".
+- Tabs: genau 6 Zeilen e|, B|, G|, D|, A|, E| pro Block, alle gleich lang.
+Antworte NUR mit JSON: {"parts": [{"name": "…", "technique": "…", "tab": "…", "verdict": "stimmt", "issues": ""}]}`
+
+export interface PartsResult {
+  parts: GuitarPart[]
+  sources: string[]
+  mode: SearchMode
+  raw: unknown
+  /** Anzahl verworfener Spuren (unsicher oder bei der Prüfung durchgefallen) */
+  dropped: number
+  key: string
+}
+
+/** Gitarrenspuren: online gelesen (Desktop-App) oder aus dem Gedächtnis mit Gegenprüfung. */
+export async function searchPartsClaude(title: string, artist: string, signal?: AbortSignal): Promise<PartsResult> {
+  const song = `${title}${artist ? ' – ' + artist : ''}`
+  const sample = await getSample()
+  let tools: SampleTool[] | null = null
+  try {
+    tools = await browserTools(sample, signal)
+  } catch {
+    tools = null
+  }
+
+  if (tools) {
+    const { result } = await ask<FoundSong>(
+      `Hole die echten Gitarren-Tabs für: ${song}. Öffne bei Ultimate Guitar die Ergebnisse vom Typ "Tab" (nicht "Chords"), bei Bedarf mehrere (z. B. Lead, Solo, Intro). Wichtig sind hier nur "parts". "sections" darf leer bleiben.`,
+      signal,
+      { requireOnline: true },
+    )
+    const parts = extractParts(result).map((p) => ({ ...p, accuracy: 'online' }))
+    const sources = Array.isArray(result.sources) ? result.sources.filter((u): u is string => typeof u === 'string') : []
+    return { parts, sources, mode: 'online', raw: result, dropped: 0, key: typeof result.key === 'string' ? result.key : '' }
+  }
+
+  // 1. Aus dem Gedächtnis – nur sichere Spuren
+  let first: Record<string, unknown>
+  try {
+    first = await sample.json<Record<string, unknown>>(`${MEMORY_PARTS}\n\nSong: ${song}`, { modelTier: 'complex', signal, cache: false })
+  } catch (err) {
+    mapError(err)
+  }
+  const rawParts = Array.isArray(first?.parts) ? (first.parts as Record<string, unknown>[]) : []
+  const sure = rawParts.filter((p) => !/unsicher|niedrig|unsure/i.test(String(p?.certainty ?? '')))
+  const candidates = extractParts({ parts: sure })
+  const key = typeof first?.key === 'string' ? first.key : ''
+  if (candidates.length === 0) return { parts: [], sources: [], mode: 'wissen', raw: first, dropped: rawParts.length, key }
+
+  // 2. Unabhängige Gegenprüfung (neuer Aufruf ohne Vorwissen über Aufruf 1)
+  let second: Record<string, unknown>
+  try {
+    second = await sample.json<Record<string, unknown>>(
+      `${VERIFY}\n\nSong: ${song}${key ? ` (Tonart laut erster Antwort: ${key})` : ''}\n\n${JSON.stringify({ parts: candidates }, null, 1)}`,
+      { modelTier: 'complex', signal, cache: false },
+    )
+  } catch (err) {
+    mapError(err)
+  }
+  const checked = Array.isArray(second?.parts) ? (second.parts as Record<string, unknown>[]) : []
+  const passed = checked.filter((p) => /^(stimmt|korrigiert)/i.test(String(p?.verdict ?? '')))
+  const parts: GuitarPart[] = []
+  for (const p of passed) {
+    const ex = extractParts({ parts: [p] })[0]
+    if (ex) parts.push({ ...ex, accuracy: /korrigiert/i.test(String(p.verdict)) ? 'gedächtnis-korrigiert' : 'gedächtnis-geprüft' })
+  }
+  return {
+    parts,
+    sources: [],
+    mode: 'wissen',
+    raw: { erster_durchgang: first, pruefung: second },
+    dropped: rawParts.length - parts.length,
+    key,
+  }
 }
