@@ -65,3 +65,4 @@ npm run lint      # oxlint
 - `buecher-app/` – Bücher-App (…/AddREADME/buecher/)
 - `fremdwoerter-app/` – Fremdwörter (…/AddREADME/fremdwoerter/)
 - `gitarre-app/` – Gitarre üben mit eigenen Songs: Akkorde, Tabs, Akkordwechsel-Trainer, Stimmgerät (…/AddREADME/gitarre/)
+- `kalorien-app/` – Kalorien, Makros und Mikronährstoffe tracken: Barcode-Scanner, Rezept-PDF-Import, feste Trainings (…/AddREADME/kalorien/)
