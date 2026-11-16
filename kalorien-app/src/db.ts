@@ -197,17 +197,20 @@ export async function deleteTemplate(id: string) {
 }
 
 /**
- * Trägt wiederkehrende Aktivitäten automatisch ein – für jeden Tag ab
- * Startdatum der Vorlage bis heute (höchstens 60 Tage zurück). Jeder
- * Tag/Slot wird genau einmal eingetragen; was du löschst, bleibt gelöscht.
+ * Trägt wiederkehrende Aktivitäten automatisch ein. Standard: alle Tage ab
+ * Startdatum der Vorlage bis heute (höchstens 60 Tage zurück). Mit `range`
+ * auch für einen bestimmten Tag, z. B. einen zukünftigen, den du im
+ * Tagebuch öffnest. Jeder Tag/Slot wird genau einmal eingetragen; was du
+ * löschst, bleibt gelöscht.
  */
-export async function materializeTemplates(weightKg: number): Promise<number> {
+export async function materializeTemplates(weightKg: number, range?: { from: string; to: string }): Promise<number> {
   const db = await getDB()
   const templates = (await db.getAll('templates')).filter((t) => t.active)
-  const end = today()
+  const end = range?.to ?? today()
+  const from = range?.from ?? addDays(end, -60)
   let created = 0
   for (const t of templates) {
-    let day = t.startDate > addDays(end, -60) ? t.startDate : addDays(end, -60)
+    let day = t.startDate > from ? t.startDate : from
     while (day <= end) {
       if (t.weekdays.includes(weekday(day))) {
         const slots = t.slots.length ? t.slots : ['']
@@ -215,8 +218,14 @@ export async function materializeTemplates(weightKg: number): Promise<number> {
           const slot = slots[i]
           // Index statt Name: Umbenennen eines Slots erzeugt keine Doppel-Einträge.
           const key = `${t.id}|${i}|${day}`
-          if (!(await db.get('materialized', key))) {
-            const tx = db.transaction(['materialized', 'activities'], 'readwrite')
+          // Prüfen und Eintragen in derselben Transaktion: IndexedDB führt
+          // schreibende Transaktionen nacheinander aus, so entstehen keine Doppel.
+          const tx = db.transaction(['materialized', 'activities'], 'readwrite')
+          if (await tx.objectStore('materialized').get(key)) {
+            await tx.done
+            continue
+          }
+          {
             await tx.objectStore('materialized').put({ key })
             await tx.objectStore('activities').put({
               id: crypto.randomUUID(),
@@ -227,7 +236,7 @@ export async function materializeTemplates(weightKg: number): Promise<number> {
               distanceKm: t.kind === 'cycling' ? t.distanceKm : undefined,
               templateId: t.id,
               slot,
-              createdAt: Date.now(),
+              createdAt: Date.now() + i, // hält die Reihenfolge morgens → nachmittags
             })
             await tx.done
             created++

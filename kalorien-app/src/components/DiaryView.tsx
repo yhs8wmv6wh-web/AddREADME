@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { ActivityEntry, Food, FoodEntry, Meal, Settings } from '../types'
 import { MEALS } from '../types'
-import { deleteActivity, deleteEntry, getActivities, getClosedDays, getDB, getEntries, saveActivity, saveEntry, saveFood, setDayClosed } from '../db'
+import { deleteActivity, deleteEntry, getActivities, getClosedDays, getDB, getEntries, materializeTemplates, saveActivity, saveEntry, saveFood, setDayClosed } from '../db'
 import { addDays, relativeLabel, today } from '../lib/date'
 import { KCAL_PER_KG, type Targets } from '../lib/calc'
 import { MICRO_KEYS, NUTRIENT_META, fmt, fmtNum, sum, type NutrientKey } from '../lib/nutrients'
@@ -34,10 +34,12 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
 
   const reload = useCallback(async () => {
     setEntries(await getEntries(date))
+    // Feste Aktivitäten auch für den angezeigten Tag eintragen (auch Zukunft).
+    await materializeTemplates(weightKg, { from: date, to: date })
     setActivities(await getActivities(date))
     setClosed((await getClosedDays()).includes(date))
     // refreshKey: neu laden, wenn App-weit Daten geändert wurden (Import, Vorlagen).
-  }, [date, refreshKey])
+  }, [date, refreshKey, weightKg])
   useEffect(() => {
     reload()
   }, [reload])
