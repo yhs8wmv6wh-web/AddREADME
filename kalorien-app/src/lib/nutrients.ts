@@ -89,3 +89,12 @@ export function forAmount(per: Nutrients, unit: string, amount: number): Nutrien
 export function perLabel(unit: string): string {
   return unit === 'Stk' ? 'pro Stück' : `pro 100 ${unit}`
 }
+
+/** "1 Kapsel", "2 Kapseln", "3 Tropfen" … */
+export function pieceLabel(piece: string | undefined, n: number): string {
+  const p = piece?.trim() || 'Stück'
+  if (n === 1) return p
+  const known: Record<string, string> = { Sprühstoß: 'Sprühstöße', Stück: 'Stück', Tropfen: 'Tropfen', Messlöffel: 'Messlöffel' }
+  if (known[p]) return known[p]
+  return /e$/.test(p) ? `${p}n` : /el$/.test(p) && p !== 'Messlöffel' ? `${p}n` : p
+}

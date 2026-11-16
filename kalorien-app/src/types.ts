@@ -12,6 +12,7 @@ export interface Portion {
 export interface Food {
   id: string
   name: string
+  pieceName?: string // bei Einheit 'Stk': z. B. "Kapsel", "Tropfen"
   nameEn?: string // Originalname aus der USDA-Datenbank
   brand?: string
   source: FoodSource
@@ -24,7 +25,8 @@ export interface Food {
   favorite?: boolean
 }
 
-export type Meal = 'fruehstueck' | 'mittag' | 'abend' | 'snacks'
+// 'supplements' ist keine wählbare Mahlzeit, sondern ein eigener Abschnitt im Tagebuch.
+export type Meal = 'fruehstueck' | 'mittag' | 'abend' | 'snacks' | 'supplements'
 
 export const MEALS: { id: Meal; label: string }[] = [
   { id: 'fruehstueck', label: 'Frühstück' },
@@ -42,6 +44,7 @@ export interface FoodEntry {
   name: string
   amount: number // g/ml bei Lebensmitteln, Portionen bei Rezepten
   unit: Unit | 'Portion'
+  pieceName?: string // z. B. "Kapsel" statt "Stück"
   nutrients: Nutrients // Momentaufnahme für genau diese Menge
   createdAt: number
 }
@@ -118,4 +121,14 @@ export interface Settings {
   microTargets: { iron: number; magnesium: number; vitD: number; b12: number }
   anthropicKey: string
   usdaKey: string
+}
+
+/** Täglich eingenommenes Supplement; wird wie der Arbeitsweg automatisch eingetragen. */
+export interface SupplementPlan {
+  id: string
+  foodId: string // Lebensmittel mit Einheit 'Stk' (Werte pro Kapsel/Tropfen)
+  amount: number // Einheiten pro Tag
+  weekdays: number[]
+  startDate: string
+  active: boolean
 }

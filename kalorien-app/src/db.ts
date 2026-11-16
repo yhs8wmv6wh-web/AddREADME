@@ -1,7 +1,8 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { ActivityEntry, ActivityTemplate, BodyLog, Food, FoodEntry, Recipe, Settings } from './types'
+import type { ActivityEntry, ActivityTemplate, BodyLog, Food, FoodEntry, Recipe, Settings, SupplementPlan } from './types'
 import { addDays, today, weekday } from './lib/date'
 import { templateKcal } from './lib/calc'
+import { forAmount } from './lib/nutrients'
 
 interface KalorienDB extends DBSchema {
   foods: { key: string; value: Food; indexes: { 'by-barcode': string } }
@@ -246,6 +247,81 @@ export async function materializeTemplates(weightKg: number, range?: { from: str
       day = addDays(day, 1)
     }
   }
+  created += await materializeSupplements(from, end)
+  return created
+}
+
+// ---------- Supplements ----------
+
+export async function getSupplements(): Promise<SupplementPlan[]> {
+  const db = await getDB()
+  return ((await db.get('kv', 'supplements')) as SupplementPlan[] | undefined) ?? []
+}
+
+export async function saveSupplement(p: SupplementPlan) {
+  const db = await getDB()
+  const list = (await getSupplements()).filter((x) => x.id !== p.id)
+  await db.put('kv', [...list, p], 'supplements')
+}
+
+export async function deleteSupplement(id: string) {
+  const db = await getDB()
+  await db.put('kv', (await getSupplements()).filter((x) => x.id !== id), 'supplements')
+}
+
+/**
+ * Nach Änderung oder Entfernen eines Supplements: Einträge ab heute anpassen
+ * bzw. ab morgen entfernen. Vergangene Tage bleiben, wie sie waren.
+ */
+export async function syncSupplementEntries(food: Food, amount: number | null) {
+  const db = await getDB()
+  const t = today()
+  const entries = await db.getAllFromIndex('entries', 'by-date', IDBKeyRange.lowerBound(t))
+  for (const e of entries) {
+    if (e.meal !== 'supplements' || e.refId !== food.id) continue
+    if (amount === null) {
+      if (e.date > t) await db.delete('entries', e.id)
+    } else {
+      await db.put('entries', { ...e, name: food.name, amount, pieceName: food.pieceName, nutrients: forAmount(food.per100, food.unit, amount) })
+    }
+  }
+}
+
+/** Trägt aktive Supplements für die Tage im Bereich ein (je Tag genau einmal). */
+async function materializeSupplements(from: string, to: string): Promise<number> {
+  const db = await getDB()
+  const plans = (await getSupplements()).filter((p) => p.active)
+  let created = 0
+  for (const p of plans) {
+    const food = await db.get('foods', p.foodId)
+    if (!food) continue
+    let day = p.startDate > from ? p.startDate : from
+    while (day <= to) {
+      if (p.weekdays.includes(weekday(day))) {
+        const key = `sup|${p.id}|${day}`
+        const tx = db.transaction(['materialized', 'entries'], 'readwrite')
+        if (!(await tx.objectStore('materialized').get(key))) {
+          await tx.objectStore('materialized').put({ key })
+          await tx.objectStore('entries').put({
+            id: crypto.randomUUID(),
+            date: day,
+            meal: 'supplements',
+            kind: 'food',
+            refId: food.id,
+            name: food.name,
+            amount: p.amount,
+            unit: food.unit,
+            pieceName: food.pieceName,
+            nutrients: forAmount(food.per100, food.unit, p.amount),
+            createdAt: Date.now(),
+          })
+          created++
+        }
+        await tx.done
+      }
+      day = addDays(day, 1)
+    }
+  }
   return created
 }
 
@@ -298,6 +374,7 @@ export async function exportAll(): Promise<string> {
   // API-Schlüssel gehören nicht in eine Datei, die evtl. in der Cloud landet.
   data.settings = { ...settings, anthropicKey: '', usdaKey: '' }
   data.closedDays = await getClosedDays()
+  data.supplements = await getSupplements()
   return JSON.stringify(data)
 }
 
@@ -311,6 +388,10 @@ export async function importAll(json: string): Promise<void> {
     const tx = db.transaction(s, 'readwrite')
     for (const item of list) await tx.store.put(item)
     await tx.done
+  }
+  if (Array.isArray(data.supplements)) {
+    const ids = new Set((data.supplements as SupplementPlan[]).map((p) => p.id))
+    await db.put('kv', [...(await getSupplements()).filter((p) => !ids.has(p.id)), ...data.supplements], 'supplements')
   }
   if (Array.isArray(data.closedDays)) {
     const merged = new Set([...(await getClosedDays()), ...data.closedDays])

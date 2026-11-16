@@ -180,6 +180,61 @@ export async function readNutritionLabel(apiKey: string, image: Blob): Promise<{
   return { name: r.name, unit: r.unit, per100: cleanNutrients(r.nutrients) }
 }
 
+// ---------- Supplement-Etikett ----------
+
+const SUPPLEMENT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    name: { type: 'string' },
+    pieceName: { type: 'string' },
+    dosePerDay: { type: ['number', 'null'] },
+    perPiece: { type: 'object', additionalProperties: false, properties: NUTRIENT_PROPS, required: NUTRIENT_REQUIRED },
+  },
+  required: ['name', 'pieceName', 'dosePerDay', 'perPiece'],
+}
+
+export interface ParsedSupplement {
+  name: string
+  pieceName: string
+  dosePerDay: number | null
+  perPiece: Nutrients
+}
+
+/** Liest ein Supplement-Etikett: Werte pro EINER Einheit (Kapsel, Tablette, Tropfen …). */
+export async function readSupplementLabel(apiKey: string, images: Blob[]): Promise<ParsedSupplement> {
+  const content: Anthropic.Beta.BetaContentBlockParam[] = []
+  for (const img of images) {
+    const media = (['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(img.type) ? img.type : 'image/jpeg') as
+      | 'image/jpeg'
+      | 'image/png'
+      | 'image/webp'
+      | 'image/gif'
+    content.push({ type: 'image', source: { type: 'base64', media_type: media, data: await toBase64(img) } })
+  }
+  content.push({
+    type: 'text',
+    text:
+      'Die Fotos zeigen das Etikett eines Nahrungsergänzungsmittels. Ermittle:\n' +
+      '- "name": Produktname (z. B. "Magnesiumbisglycinat", "Vitamin D3 Tropfen").\n' +
+      '- "pieceName": die Einheit im Singular auf Deutsch: "Kapsel", "Tablette", "Tropfen", "Messlöffel", "Sprühstoß" o. Ä.\n' +
+      '- "dosePerDay": empfohlene Anzahl Einheiten pro Tag laut Etikett, sonst null.\n' +
+      '- "perPiece": Nährstoffe pro EINER Einheit. Steht die Angabe pro Tagesdosis (z. B. "3 Kapseln enthalten 300 mg"), ' +
+      'teile durch die Anzahl. Bei Magnesium und Eisen den Gehalt des reinen Minerals (elementar) nehmen, nicht das Gewicht der Verbindung ' +
+      '(z. B. Magnesiumbisglycinat 1000 mg ≙ ca. 140 mg Magnesium – nimm den Wert, der als Magnesium ausgewiesen ist). ' +
+      'Einheiten: iron und magnesium in mg; vitD und b12 in µg; kcal in kcal; Makros in g. Vitamin D in IE umrechnen: µg = IE / 40. ' +
+      'Alles, was nicht auf dem Etikett steht, null. Nichts schätzen.',
+  })
+  const r = await askJson<{ name: string; pieceName: string; dosePerDay: number | null; perPiece: Record<string, number | null> }>(
+    apiKey,
+    content,
+    SUPPLEMENT_SCHEMA,
+    'medium',
+    4000,
+  )
+  return { name: r.name, pieceName: r.pieceName || 'Stück', dosePerDay: r.dosePerDay, perPiece: cleanNutrients(r.perPiece) }
+}
+
 // ---------- Rezept-PDF ----------
 
 export interface ParsedIngredient {
