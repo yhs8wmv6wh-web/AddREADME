@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { ActivityEntry, Food, FoodEntry, Meal, Settings } from '../types'
 import { MEALS } from '../types'
-import { deleteActivity, deleteEntry, getActivities, getDB, getEntries, saveActivity, saveEntry, saveFood } from '../db'
+import { deleteActivity, deleteEntry, getActivities, getClosedDays, getDB, getEntries, saveActivity, saveEntry, saveFood, setDayClosed } from '../db'
 import { addDays, relativeLabel, today } from '../lib/date'
-import type { Targets } from '../lib/calc'
+import { KCAL_PER_KG, type Targets } from '../lib/calc'
 import { MICRO_KEYS, NUTRIENT_META, fmt, fmtNum, sum, type NutrientKey } from '../lib/nutrients'
 import { AddFoodSheet } from './AddFoodSheet'
 import { AmountSheet } from './AmountSheet'
@@ -30,10 +30,12 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
   const [entries, setEntries] = useState<FoodEntry[]>([])
   const [activities, setActivities] = useState<ActivityEntry[]>([])
   const [sub, setSub] = useState<Sub>({ kind: 'none' })
+  const [closed, setClosed] = useState(false)
 
   const reload = useCallback(async () => {
     setEntries(await getEntries(date))
     setActivities(await getActivities(date))
+    setClosed((await getClosedDays()).includes(date))
     // refreshKey: neu laden, wenn App-weit Daten geändert wurden (Import, Vorlagen).
   }, [date, refreshKey])
   useEffect(() => {
@@ -284,6 +286,88 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
           + Training eintragen
         </button>
       </section>
+
+      <DayClose
+        closed={closed}
+        hasEntries={entries.length > 0}
+        eatenKcal={eaten.kcal ?? 0}
+        burnedKcal={burned}
+        tdee={targets.tdee}
+        weightKg={weightKg}
+        onToggle={async (v) => {
+          await setDayClosed(date, v)
+          setClosed(v)
+        }}
+      />
     </div>
+  )
+}
+
+/**
+ * „Tag abschließen": Wie viel würdest du in 4, 6 und 12 Wochen wiegen,
+ * wenn jeder Tag so wäre wie dieser? Bilanz = Gesamtumsatz ohne Sport
+ * + Training − Gegessen; 1 kg ≈ 7.700 kcal.
+ */
+function DayClose({
+  closed,
+  hasEntries,
+  eatenKcal,
+  burnedKcal,
+  tdee,
+  weightKg,
+  onToggle,
+}: {
+  closed: boolean
+  hasEntries: boolean
+  eatenKcal: number
+  burnedKcal: number
+  tdee: number
+  weightKg: number
+  onToggle: (closed: boolean) => void
+}) {
+  if (!closed) {
+    return (
+      <button
+        type="button"
+        className="rounded-xl bg-emerald-700 dark:bg-emerald-500 px-4 py-3.5 font-semibold text-white dark:text-neutral-950 disabled:opacity-40"
+        disabled={!hasEntries}
+        onClick={() => onToggle(true)}
+      >
+        Tag abschließen
+      </button>
+    )
+  }
+
+  const deficit = tdee + burnedKcal - eatenKcal // > 0: Defizit
+  const perDayKg = deficit / KCAL_PER_KG
+  const rows = [4, 6, 12].map((w) => ({ weeks: w, weight: weightKg - perDayKg * w * 7, change: -perDayKg * w * 7 }))
+  const losing = deficit > 0
+
+  return (
+    <section className={`${card} p-4`}>
+      <h3 className="font-semibold">Wenn jeder Tag so wäre wie heute …</h3>
+      <p className="mt-1 text-sm text-neutral-500">
+        {losing ? 'Defizit' : 'Überschuss'} heute: {fmtNum(Math.abs(deficit))} kcal ({fmtNum(tdee)} Umsatz + {fmtNum(burnedKcal)} Training −{' '}
+        {fmtNum(eatenKcal)} gegessen)
+      </p>
+      <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+        {rows.map((r) => (
+          <div key={r.weeks} className="rounded-lg bg-neutral-100 dark:bg-neutral-800 px-2 py-3">
+            <dt className="text-xs text-neutral-500">in {r.weeks} Wochen</dt>
+            <dd className="text-xl font-semibold tabular-nums">{fmtNum(r.weight, 1)} kg</dd>
+            <dd className={`text-sm tabular-nums ${losing ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+              {r.change > 0 ? '+' : '−'}
+              {fmtNum(Math.abs(r.change), 1)} kg
+            </dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-3 text-xs text-neutral-500">
+        Ausgehend von {fmtNum(weightKg, 1)} kg (letzte Messung). Rechnerische Schätzung; Wasser und Verdauung lassen die Waage schwanken.
+      </p>
+      <button type="button" className={`${btnLink} mt-2 text-sm`} onClick={() => onToggle(false)}>
+        Tag wieder öffnen
+      </button>
+    </section>
   )
 }

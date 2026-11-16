@@ -240,6 +240,21 @@ export async function materializeTemplates(weightKg: number): Promise<number> {
   return created
 }
 
+// ---------- Abgeschlossene Tage ----------
+
+export async function getClosedDays(): Promise<string[]> {
+  const db = await getDB()
+  return ((await db.get('kv', 'closedDays')) as string[] | undefined) ?? []
+}
+
+export async function setDayClosed(date: string, closed: boolean) {
+  const db = await getDB()
+  const days = new Set(await getClosedDays())
+  if (closed) days.add(date)
+  else days.delete(date)
+  await db.put('kv', [...days].sort(), 'closedDays')
+}
+
 // ---------- Körperdaten ----------
 
 export async function getBodyLogs(): Promise<BodyLog[]> {
@@ -273,6 +288,7 @@ export async function exportAll(): Promise<string> {
   const settings = (await getSettings()).settings
   // API-Schlüssel gehören nicht in eine Datei, die evtl. in der Cloud landet.
   data.settings = { ...settings, anthropicKey: '', usdaKey: '' }
+  data.closedDays = await getClosedDays()
   return JSON.stringify(data)
 }
 
@@ -286,6 +302,10 @@ export async function importAll(json: string): Promise<void> {
     const tx = db.transaction(s, 'readwrite')
     for (const item of list) await tx.store.put(item)
     await tx.done
+  }
+  if (Array.isArray(data.closedDays)) {
+    const merged = new Set([...(await getClosedDays()), ...data.closedDays])
+    await db.put('kv', [...merged].sort(), 'closedDays')
   }
   if (data.settings) {
     const current = (await getSettings()).settings
