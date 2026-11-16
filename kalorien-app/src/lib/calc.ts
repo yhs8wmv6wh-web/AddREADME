@@ -44,12 +44,30 @@ export const ACTIVITY_LEVELS: { value: number; label: string }[] = [
   { value: 1.55, label: 'Überwiegend stehend oder gehend' },
 ]
 
-// MET-Werte aus dem Compendium of Physical Activities (Ainsworth et al. 2011).
-export const CYCLING_PRESETS: { met: number; label: string }[] = [
-  { met: 4.0, label: 'Gemütlich, unter 16 km/h (MET 4,0)' },
-  { met: 6.8, label: 'Arbeitsweg, eigenes Tempo (MET 6,8)' },
-  { met: 8.0, label: 'Zügig, 19–22 km/h (MET 8,0)' },
+// MET-Werte für Radfahren nach Geschwindigkeit, aus dem Compendium of
+// Physical Activities (Ainsworth et al. 2011, Codes 01010–01060).
+const CYCLING_MET_BY_SPEED: { maxKmh: number; met: number; label: string }[] = [
+  { maxKmh: 16, met: 4.0, label: 'unter 16 km/h' },
+  { maxKmh: 19.2, met: 6.8, label: '16–19 km/h' },
+  { maxKmh: 22.4, met: 8.0, label: '19–22 km/h' },
+  { maxKmh: 25.6, met: 10.0, label: '22–26 km/h' },
+  { maxKmh: 32, met: 12.0, label: '26–32 km/h' },
+  { maxKmh: Infinity, met: 15.8, label: 'über 32 km/h' },
 ]
+
+export function speedKmh(km: number, minutes: number): number {
+  return minutes > 0 ? km / (minutes / 60) : 0
+}
+
+export function cyclingMet(kmh: number): { met: number; label: string } {
+  return CYCLING_MET_BY_SPEED.find((c) => kmh < c.maxKmh) ?? CYCLING_MET_BY_SPEED[CYCLING_MET_BY_SPEED.length - 1]
+}
+
+/** kcal einer Fahrt aus Strecke, Dauer und Gewicht. */
+export function cyclingKcal(km: number, minutes: number, weightKg: number): number {
+  if (!km || !minutes) return 0
+  return metKcal(cyclingMet(speedKmh(km, minutes)).met, weightKg, minutes)
+}
 
 /**
  * Netto-Verbrauch: (MET − 1) × kg × Stunden. Der Ruheumsatz für diese Zeit
@@ -60,6 +78,9 @@ export function metKcal(met: number, weightKg: number, minutes: number): number 
 }
 
 export function templateKcal(t: ActivityTemplate, weightKg: number): number {
-  if (t.kind === 'cycling') return metKcal(t.met ?? 6.8, weightKg, t.minutes ?? 0)
+  if (t.kind === 'cycling') {
+    if (t.distanceKm) return cyclingKcal(t.distanceKm, t.minutes ?? 0, weightKg)
+    return metKcal(t.met ?? 6.8, weightKg, t.minutes ?? 0) // ältere Vorlagen ohne Strecke
+  }
   return Math.round(t.kcal ?? 0)
 }

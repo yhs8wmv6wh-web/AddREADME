@@ -259,6 +259,7 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
                     <span className="block truncate">{a.name}</span>
                     <span className="block text-xs text-neutral-500">
                       {a.templateId ? 'automatisch' : 'manuell'}
+                      {a.distanceKm ? ` · ${fmtNum(a.distanceKm, 1)} km` : ''}
                       {a.minutes ? ` · ${a.minutes} min` : ''}
                     </span>
                   </span>

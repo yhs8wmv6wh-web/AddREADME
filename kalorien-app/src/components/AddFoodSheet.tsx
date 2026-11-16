@@ -4,7 +4,7 @@ import { MEALS } from '../types'
 import { deleteFood, getFoodByBarcode, getFoods, getRecipes, saveEntry, saveFood, saveRecipe } from '../db'
 import { lookupBarcode, OffNotFound } from '../lib/off'
 import { searchUsda } from '../lib/usda'
-import { translateQuery } from '../lib/claude'
+import { translateNames, translateQuery } from '../lib/claude'
 import { fmt, fmtNum } from '../lib/nutrients'
 import { recipePerServing } from '../lib/recipe'
 import { AmountSheet } from './AmountSheet'
@@ -60,16 +60,37 @@ export function AddFoodSheet({ date, meal, settings, onDone, onClose }: Props) {
     if (!term) return
     setError(null)
     setResults(null)
-    try {
-      let english = term
-      if (settings.anthropicKey) {
-        setBusy('Übersetze Suchbegriff …')
-        english = await translateQuery(settings.anthropicKey, term)
+    setSearchInfo(null)
+    const key = settings.anthropicKey
+    let english = term
+    if (key) {
+      setBusy('Übersetze Suchbegriff …')
+      try {
+        english = await translateQuery(key, term)
+      } catch (err) {
+        setBusy(null)
+        setError(`Übersetzung fehlgeschlagen: ${err instanceof Error ? err.message : 'unbekannter Fehler'}`)
+        return
       }
-      setBusy('Suche in der USDA-Datenbank …')
-      const found = await searchUsda(english, settings.usdaKey)
+    }
+    try {
+      setBusy(`Suche „${english}" in der USDA-Datenbank …`)
+      let found = await searchUsda(english, settings.usdaKey)
+      if (key && found.length) {
+        setBusy('Übersetze Treffer ins Deutsche …')
+        try {
+          const de = await translateNames(key, found.map((f) => f.name))
+          found = found.map((f, i) => ({ ...f, nameEn: f.name, name: de[i] }))
+        } catch {
+          // Treffer trotzdem zeigen, dann eben auf Englisch.
+        }
+      }
       setResults(found)
-      setSearchInfo(english !== term ? `Gesucht nach „${english}"` : null)
+      setSearchInfo(
+        key
+          ? `Gesucht nach „${english}"`
+          : 'Ohne Claude-Schlüssel wird nicht übersetzt. USDA kennt nur englische Begriffe – Schlüssel in den Einstellungen eintragen.',
+      )
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Suche fehlgeschlagen.')
     } finally {
@@ -198,15 +219,22 @@ export function AddFoodSheet({ date, meal, settings, onDone, onClose }: Props) {
             In USDA-Datenbank suchen
           </button>
         )}
+        {query.trim() && !settings.anthropicKey && (
+          <p className="text-sm text-amber-700 dark:text-amber-400">
+            Kein Claude-Schlüssel eingetragen: Die Suche wird nicht übersetzt. Auf Englisch suchen oder Schlüssel unter Einstellungen eintragen.
+          </p>
+        )}
         {busy && <p className="text-sm text-neutral-500">{busy}</p>}
         <ErrorText>{error}</ErrorText>
 
         {results && (
           <section className="flex flex-col gap-2">
-            <h3 className={label}>USDA-Treffer {searchInfo && <span className="normal-case tracking-normal">· {searchInfo}</span>}</h3>
+            <h3 className={label}>USDA-Treffer</h3>
+            {searchInfo && (
+              <p className={`text-sm ${settings.anthropicKey ? 'text-neutral-500' : 'text-amber-700 dark:text-amber-400'}`}>{searchInfo}</p>
+            )}
             {results.length === 0 && <p className="text-sm text-neutral-500">Keine Treffer. Versuch einen allgemeineren Begriff.</p>}
             <FoodList foods={results} onPick={(food) => setSub({ kind: 'amount', food })} />
-            <p className="text-xs text-neutral-500">Namen sind englisch (Originaldaten der USDA). „raw" = roh, „cooked" = gegart.</p>
           </section>
         )}
 
@@ -249,7 +277,7 @@ function FoodList({ foods, onPick }: { foods: Food[]; onPick: (f: Food) => void 
           <button type="button" className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left" onClick={() => onPick(f)}>
             <span className="min-w-0">
               <span className="block truncate">{f.name}</span>
-              {f.brand && <span className="block truncate text-xs text-neutral-500">{f.brand}</span>}
+              {(f.brand || f.nameEn) && <span className="block truncate text-xs text-neutral-500">{f.brand ?? f.nameEn}</span>}
             </span>
             <span className="shrink-0 text-sm tabular-nums text-neutral-500">
               {fmt(f.per100.kcal, 'kcal')} kcal/100 {f.unit}

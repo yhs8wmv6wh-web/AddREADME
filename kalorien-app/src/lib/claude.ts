@@ -90,6 +90,38 @@ export async function translateQuery(apiKey: string, german: string): Promise<st
   return r.query.trim() || german
 }
 
+const NAMES_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: { names: { type: 'array', items: { type: 'string' } } },
+  required: ['names'],
+}
+
+/** Übersetzt USDA-Bezeichnungen ins Deutsche, gleiche Reihenfolge wie die Eingabe. */
+export async function translateNames(apiKey: string, english: string[]): Promise<string[]> {
+  if (english.length === 0) return []
+  const r = await askJson<{ names: string[] }>(
+    apiKey,
+    [
+      {
+        type: 'text',
+        text:
+          'Übersetze diese Lebensmittel-Bezeichnungen aus der USDA-Datenbank ins Deutsche. Kurz und natürlich, ' +
+          'wichtige Angaben behalten (roh/gekocht, mit/ohne Haut, Fettstufe), z. B. "Wine, table, red" -> ' +
+          '"Rotwein", "Chicken, broilers or fryers, breast, meat only, raw" -> "Hähnchenbrust, ohne Haut, roh". ' +
+          'Gib genau ' +
+          english.length +
+          ' Namen in derselben Reihenfolge zurück.\n\n' +
+          english.map((n, i) => `${i + 1}. ${n}`).join('\n'),
+      },
+    ],
+    NAMES_SCHEMA,
+    'low',
+    4000,
+  )
+  return english.map((n, i) => r.names[i]?.trim() || n)
+}
+
 // ---------- Nährwerttabelle vom Foto ----------
 
 const NUTRIENT_PROPS = {

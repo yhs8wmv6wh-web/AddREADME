@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { ActivityEntry } from '../types'
-import { CYCLING_PRESETS, metKcal } from '../lib/calc'
+import { cyclingKcal } from '../lib/calc'
+import { CyclingFields } from './CyclingFields'
 import { fmtNum } from '../lib/nutrients'
 import { NumberField, Sheet, btnPrimary, input, label } from './ui'
 
@@ -19,10 +20,10 @@ export function ActivitySheet({ date, weightKg, existing, onSave, onDelete, onCl
   const [mode, setMode] = useState<Mode>('kcal')
   const [name, setName] = useState(existing?.name ?? '')
   const [kcal, setKcal] = useState<number | undefined>(existing?.kcal)
-  const [minutes, setMinutes] = useState<number | undefined>(existing?.minutes ?? 30)
-  const [met, setMet] = useState(6.8)
+  const [minutes, setMinutes] = useState<number | undefined>(existing?.minutes)
+  const [km, setKm] = useState<number | undefined>(existing?.distanceKm)
 
-  const computed = mode === 'cycling' ? metKcal(met, weightKg, minutes ?? 0) : Math.round(kcal ?? 0)
+  const computed = mode === 'cycling' ? cyclingKcal(km ?? 0, minutes ?? 0, weightKg) : Math.round(kcal ?? 0)
   const finalName = name.trim() || (mode === 'cycling' ? 'Fahrrad' : '')
 
   return (
@@ -78,30 +79,7 @@ export function ActivitySheet({ date, weightKg, existing, onSave, onDelete, onCl
             <NumberField id="act-kcal" value={kcal} onChange={setKcal} />
           </div>
         ) : (
-          <>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="act-min" className={label}>
-                Dauer in Minuten
-              </label>
-              <NumberField id="act-min" value={minutes} onChange={setMinutes} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className={label}>Tempo</span>
-              {CYCLING_PRESETS.map((p) => (
-                <button
-                  key={p.met}
-                  type="button"
-                  onClick={() => setMet(p.met)}
-                  className={`rounded-lg border px-3 py-2 text-left text-sm ${met === p.met ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 font-semibold' : 'border-neutral-300 dark:border-neutral-700'}`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-            <p className="text-xs text-neutral-500">
-              Berechnet mit deinem aktuellen Gewicht ({fmtNum(weightKg, 1)} kg), ohne den Ruheumsatz, der ohnehin im Tagesziel steckt.
-            </p>
-          </>
+          <CyclingFields km={km} minutes={minutes} weightKg={weightKg} onKm={setKm} onMinutes={setMinutes} />
         )}
 
         <p className="text-3xl font-semibold tabular-nums">
@@ -119,6 +97,7 @@ export function ActivitySheet({ date, weightKg, existing, onSave, onDelete, onCl
               name: finalName,
               kcal: computed,
               minutes: mode === 'cycling' ? minutes : existing?.minutes,
+              distanceKm: mode === 'cycling' ? km : existing?.distanceKm,
               templateId: existing?.templateId,
               slot: existing?.slot,
               createdAt: existing?.createdAt ?? Date.now(),

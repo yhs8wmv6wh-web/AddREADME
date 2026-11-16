@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ActivityTemplate, Settings } from '../types'
-import { deleteTemplate, exportAll, getTemplates, importAll, saveTemplate } from '../db'
-import { ACTIVITY_LEVELS, CYCLING_PRESETS, templateKcal, type Targets } from '../lib/calc'
+import { deleteTemplate, exportAll, getTemplates, importAll, recalcTemplateEntries, saveTemplate } from '../db'
+import { ACTIVITY_LEVELS, templateKcal, type Targets } from '../lib/calc'
+import { CyclingFields } from './CyclingFields'
 import { WEEKDAY_SHORT, today } from '../lib/date'
 import { fmtNum } from '../lib/nutrients'
 import { ErrorText, NumberField, Sheet, btnLink, btnPrimary, btnSecondary, card, input, label } from './ui'
@@ -48,6 +49,7 @@ export function SettingsView({ settings, isNew, targets, weightKg, onSave, onDat
         weightKg={weightKg}
         onSave={async (t) => {
           await saveTemplate(t)
+          await recalcTemplateEntries(t, weightKg)
           setTemplates(await getTemplates())
           setEditing(null)
           onDataChanged()
@@ -226,8 +228,8 @@ export function SettingsView({ settings, isNew, targets, weightKg, onSave, onDat
                 kind: 'cycling',
                 weekdays: [1, 2, 3, 4, 5],
                 slots: ['morgens', 'nachmittags'],
-                minutes: 20,
-                met: 6.8,
+                minutes: undefined,
+                distanceKm: undefined,
                 startDate: today(),
                 active: true,
               })
@@ -290,7 +292,7 @@ function TemplateEditor({
     .split(',')
     .map((x) => x.trim())
     .filter(Boolean)
-  const valid = t.name.trim() && t.weekdays.length > 0 && (t.kind === 'cycling' ? (t.minutes ?? 0) > 0 : (t.kcal ?? 0) > 0)
+  const valid = t.name.trim() && t.weekdays.length > 0 && (t.kind === 'cycling' ? (t.minutes ?? 0) > 0 && (t.distanceKm ?? 0) > 0 : (t.kcal ?? 0) > 0)
 
   return (
     <Sheet title="Feste Aktivität" onClose={onClose}>
@@ -340,25 +342,13 @@ function TemplateEditor({
         </div>
 
         {t.kind === 'cycling' ? (
-          <>
-            <div className="flex flex-col gap-1.5">
-              <span className={label}>Minuten pro Fahrt</span>
-              <NumberField value={t.minutes} onChange={(v) => setT({ ...t, minutes: v })} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <span className={label}>Tempo</span>
-              {CYCLING_PRESETS.map((p) => (
-                <button
-                  key={p.met}
-                  type="button"
-                  onClick={() => setT({ ...t, met: p.met })}
-                  className={`rounded-lg border px-3 py-2 text-left text-sm ${t.met === p.met ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 font-semibold' : 'border-neutral-300 dark:border-neutral-700'}`}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
-          </>
+          <CyclingFields
+            km={t.distanceKm}
+            minutes={t.minutes}
+            weightKg={weightKg}
+            onKm={(v) => setT({ ...t, distanceKm: v })}
+            onMinutes={(v) => setT({ ...t, minutes: v })}
+          />
         ) : (
           <div className="flex flex-col gap-1.5">
             <span className={label}>kcal pro Einheit</span>
