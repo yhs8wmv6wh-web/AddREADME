@@ -11,6 +11,7 @@ on:
 #   - Bücher-App     -> Unterordner   (…github.io/AddREADME/buecher/)
 #   - Fremdwörter    -> Unterordner   (…github.io/AddREADME/fremdwoerter/)
 #   - Gitarre        -> Unterordner   (…github.io/AddREADME/gitarre/)
+#   - Kalorien       -> Unterordner   (…github.io/AddREADME/kalorien/)
 # GitHub Pages muss (einmalig, bereits erledigt) auf den Zweig gh-pages zeigen.
 permissions:
   contents: write
@@ -57,6 +58,14 @@ jobs:
           npm ci
           npm run build
 
+      - name: Kalorien-App bauen (Unterordner /kalorien/)
+        working-directory: kalorien-app
+        env:
+          GITHUB_PAGES: "1"
+        run: |
+          npm ci
+          npm run build
+
       - name: Ausgabe zusammenstellen
         run: |
           rm -rf public_site
@@ -68,6 +77,8 @@ jobs:
           cp -r fremdwoerter-app/dist/. public_site/fremdwoerter/
           mkdir -p public_site/gitarre
           cp -r gitarre-app/dist/. public_site/gitarre/
+          mkdir -p public_site/kalorien
+          cp -r kalorien-app/dist/. public_site/kalorien/
           touch public_site/.nojekyll
 
       - name: Nach gh-pages veröffentlichen
