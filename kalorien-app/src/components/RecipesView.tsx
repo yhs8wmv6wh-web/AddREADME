@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Food, Recipe, RecipeIngredient, Settings } from '../types'
 import { deleteRecipe, getRecipes, saveRecipe } from '../db'
-import { parseRecipePdf } from '../lib/claude'
+import { parseRecipe, type RecipeSource } from '../lib/claude'
+import { RecipePaste } from './RecipePaste'
 import { searchUsda } from '../lib/usda'
 import { MICRO_KEYS, NUTRIENT_META, fmt, fmtNum, scale, type NutrientKey } from '../lib/nutrients'
 import { recipePerServing, recipeTotal } from '../lib/recipe'
@@ -21,22 +22,19 @@ export function RecipesView({ settings, refreshKey }: { settings: Settings; refr
     reload()
   }, [refreshKey])
 
-  async function handlePdf(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    e.target.value = ''
-    if (!file) return
+  async function importRecipe(src: RecipeSource, fallbackTitle: string): Promise<boolean> {
     if (!settings.anthropicKey) {
-      setError('Für den PDF-Import brauchst du einen Claude-API-Schlüssel. Trage ihn unter Einstellungen ein.')
-      return
+      setError('Für den Rezept-Import brauchst du einen Claude-API-Schlüssel. Trage ihn unter Einstellungen ein.')
+      return false
     }
     setBusy(true)
     setError(null)
     try {
-      const parsed = await parseRecipePdf(settings.anthropicKey, file)
+      const parsed = await parseRecipe(settings.anthropicKey, src)
       const servings = Math.round(((parsed.servingsMin + parsed.servingsMax) / 2) * 2) / 2 || 4
       setEditing({
         id: crypto.randomUUID(),
-        title: parsed.title || file.name.replace(/\.pdf$/i, ''),
+        title: parsed.title || fallbackTitle,
         servingsText: parsed.servingsText,
         servings,
         ingredients: parsed.ingredients.map((i) => ({
@@ -52,11 +50,19 @@ export function RecipesView({ settings, refreshKey }: { settings: Settings; refr
         createdAt: Date.now(),
         lastUsed: Date.now(),
       })
+      return true
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'PDF konnte nicht gelesen werden.')
+      setError(err instanceof Error ? err.message : 'Rezept konnte nicht gelesen werden.')
+      return false
     } finally {
       setBusy(false)
     }
+  }
+
+  function handlePdf(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (file) importRecipe({ pdf: file }, file.name.replace(/\.pdf$/i, ''))
   }
 
   if (editing)
@@ -80,14 +86,15 @@ export function RecipesView({ settings, refreshKey }: { settings: Settings; refr
 
   return (
     <div className="flex flex-col gap-4">
-      <button type="button" className={btnPrimary} onClick={() => fileRef.current?.click()} disabled={busy}>
-        {busy ? 'Claude liest das Rezept … (ca. 30–60 s)' : 'Rezept-PDF importieren'}
+      <RecipePaste busy={busy} onImport={(src) => importRecipe(src, 'Rezept')} />
+      {busy && <p className="text-sm text-neutral-500">Claude liest das Rezept … (ca. 30–60 Sekunden)</p>}
+      <ErrorText>{error}</ErrorText>
+      <button type="button" className={btnSecondary} onClick={() => fileRef.current?.click()} disabled={busy}>
+        PDF-Datei auswählen
       </button>
       <input ref={fileRef} type="file" accept="application/pdf,.pdf" className="hidden" onChange={handlePdf} />
-      <ErrorText>{error}</ErrorText>
       <p className="text-sm text-neutral-500">
-        NYT-Cooking-Rezept als PDF sichern (Teilen → Drucken → PDF sichern) und hier hochladen. Danach kannst du Zutaten
-        abwählen, Mengen ändern und die Werte mit der USDA-Datenbank abgleichen.
+        Danach kannst du Zutaten abwählen, Mengen ändern und die Werte mit der USDA-Datenbank abgleichen.
       </p>
 
       {recipes.length === 0 ? (

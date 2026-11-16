@@ -225,7 +225,8 @@ const RECIPE_SCHEMA = {
   required: ['title', 'servingsText', 'servingsMin', 'servingsMax', 'ingredients'],
 }
 
-const RECIPE_PROMPT = `Das PDF ist ein Rezept (meist von NYT Cooking, also mit US-Mengenangaben).
+const RECIPE_PROMPT = `Der Inhalt oben ist ein Rezept (PDF, Text oder Screenshots, meist von NYT Cooking, also mit US-Mengenangaben).
+Ignoriere alles, was nicht zum Rezept gehört (Navigation, Werbung, Kommentare).
 Extrahiere alle Zutaten. Für jede Zutat:
 - "original": die Zeile genau wie im Rezept.
 - "nameDe": kurzer deutscher Name (z. B. "Olivenöl", "Zwiebel, roh").
@@ -235,16 +236,32 @@ Extrahiere alle Zutaten. Für jede Zutat:
 Optionale Zutaten und Garnituren mit aufnehmen. Zutaten, die nur zum Kochen und nicht zum Essen dienen (z. B. Frittieröl, Nudelwasser-Salz), mit realistischer aufgenommener Menge ansetzen.
 "servingsText": die Portionsangabe aus dem Rezept wörtlich (z. B. "4 to 6 servings"). "servingsMin"/"servingsMax": Zahlen daraus (bei einer einzigen Zahl beide gleich; wenn keine Angabe: 4 und 4).`
 
-export async function parseRecipePdf(apiKey: string, pdf: Blob): Promise<ParsedRecipe> {
+/** Was als Rezept übergeben werden kann: PDF, Bilder (Screenshots) oder Text. */
+export type RecipeSource = { pdf?: Blob; images?: Blob[]; text?: string }
+
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
+type ImageType = (typeof IMAGE_TYPES)[number]
+
+export async function parseRecipe(apiKey: string, src: RecipeSource): Promise<ParsedRecipe> {
+  const content: Anthropic.Beta.BetaContentBlockParam[] = []
+  if (src.pdf) {
+    content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: await toBase64(src.pdf) } })
+  }
+  for (const img of src.images ?? []) {
+    const media = (IMAGE_TYPES as readonly string[]).includes(img.type) ? (img.type as ImageType) : 'image/png'
+    content.push({ type: 'image', source: { type: 'base64', media_type: media, data: await toBase64(img) } })
+  }
+  if (src.text?.trim()) content.push({ type: 'text', text: `REZEPT:\n${src.text.trim()}` })
+  if (content.length === 0) throw new Error('Nichts zum Auslesen gefunden.')
+  content.push({ type: 'text', text: RECIPE_PROMPT })
+
   const r = await askJson<ParsedRecipe & { ingredients: (Omit<ParsedIngredient, 'estimate'> & { estimate: Record<string, number | null> })[] }>(
     apiKey,
-    [
-      { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: await toBase64(pdf) } },
-      { type: 'text', text: RECIPE_PROMPT },
-    ],
+    content,
     RECIPE_SCHEMA,
     'medium',
     32000,
   )
+  if (r.ingredients.length === 0) throw new Error('Claude hat darin keine Zutaten gefunden. Ist das wirklich das Rezept?')
   return { ...r, ingredients: r.ingredients.map((i) => ({ ...i, estimate: cleanNutrients(i.estimate) })) }
 }
