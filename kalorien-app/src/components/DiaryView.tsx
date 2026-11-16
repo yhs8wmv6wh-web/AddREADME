@@ -218,7 +218,7 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
                       <span className="min-w-0">
                         <span className="block truncate">{e.name}</span>
                         <span className="block text-xs text-neutral-500">
-                          {fmtNum(e.amount, 1)} {e.unit === 'Portion' ? (e.amount === 1 ? 'Portion' : 'Portionen') : e.unit}
+                          {fmtNum(e.amount, 1)} {e.unit === 'Portion' ? (e.amount === 1 ? 'Portion' : 'Portionen') : e.unit === 'Stk' ? 'Stück' : e.unit}
                         </span>
                       </span>
                       <span className="shrink-0 tabular-nums text-sm">{fmt(e.nutrients.kcal, 'kcal')}</span>

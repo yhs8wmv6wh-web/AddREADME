@@ -79,3 +79,13 @@ export function fmt(v: number | undefined, key: NutrientKey): string {
 export function fmtNum(v: number, digits = 0): string {
   return v.toLocaleString('de-DE', { maximumFractionDigits: digits })
 }
+
+/** Nährwerte für eine Menge: g/ml bezogen auf 100, Stück direkt multipliziert. */
+export function forAmount(per: Nutrients, unit: string, amount: number): Nutrients {
+  return unit === 'Stk' ? multiply(per, amount) : scale(per, amount)
+}
+
+/** "pro 100 g", "pro 100 ml" oder "pro Stück" */
+export function perLabel(unit: string): string {
+  return unit === 'Stk' ? 'pro Stück' : `pro 100 ${unit}`
+}

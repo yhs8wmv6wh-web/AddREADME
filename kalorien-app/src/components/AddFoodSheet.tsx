@@ -280,7 +280,7 @@ function FoodList({ foods, onPick }: { foods: Food[]; onPick: (f: Food) => void 
               {(f.brand || f.nameEn) && <span className="block truncate text-xs text-neutral-500">{f.brand ?? f.nameEn}</span>}
             </span>
             <span className="shrink-0 text-sm tabular-nums text-neutral-500">
-              {fmt(f.per100.kcal, 'kcal')} kcal/100 {f.unit}
+              {fmt(f.per100.kcal, 'kcal')} kcal/{f.unit === 'Stk' ? 'Stück' : `100 ${f.unit}`}
             </span>
           </button>
         </li>

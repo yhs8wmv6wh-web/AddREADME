@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Food, FoodEntry, Meal, Portion } from '../types'
 import { MEALS } from '../types'
-import { MICRO_KEYS, NUTRIENT_META, fmt, scale, type NutrientKey } from '../lib/nutrients'
+import { MICRO_KEYS, NUTRIENT_META, fmt, forAmount, perLabel, type NutrientKey } from '../lib/nutrients'
 import { NumberField, Sheet, btnLink, btnPrimary, btnSecondary, card, input, label } from './ui'
 
 const SOURCE_LABEL: Record<Food['source'], string> = {
@@ -25,12 +25,12 @@ interface Props {
 }
 
 export function AmountSheet({ food, meal: initialMeal, date, existing, onSave, onEditFood, onDelete, onClose }: Props) {
-  const [amount, setAmount] = useState<number | undefined>(existing?.amount ?? food.portions[0]?.amount ?? 100)
+  const [amount, setAmount] = useState<number | undefined>(existing?.amount ?? (food.unit === 'Stk' ? 1 : (food.portions[0]?.amount ?? 100)))
   const [meal, setMeal] = useState<Meal>(existing?.meal ?? initialMeal)
   const [portions, setPortions] = useState<Portion[]>(food.portions)
   const [newPortion, setNewPortion] = useState<{ name: string; amount?: number } | null>(null)
 
-  const n = scale(food.per100, amount ?? 0)
+  const n = forAmount(food.per100, food.unit, amount ?? 0)
   const unit = food.unit
 
   function save() {
@@ -70,7 +70,7 @@ export function AmountSheet({ food, meal: initialMeal, date, existing, onSave, o
           <h3 className="text-lg font-semibold leading-snug">{food.name}</h3>
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
             {food.brand ? `${food.brand} · ` : ''}
-            {SOURCE_LABEL[food.source]} · {fmt(food.per100.kcal, 'kcal')} kcal pro 100 {unit}
+            {SOURCE_LABEL[food.source]} · {fmt(food.per100.kcal, 'kcal')} kcal {perLabel(unit)}
           </p>
           {missing.length > 0 && (
             <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
@@ -81,7 +81,7 @@ export function AmountSheet({ food, meal: initialMeal, date, existing, onSave, o
 
         <div className="flex flex-col gap-2">
           <label htmlFor="amount" className={label}>
-            Menge in {unit}
+            {unit === 'Stk' ? 'Anzahl (Stück)' : `Menge in ${unit}`}
           </label>
           <div className="flex items-center gap-2">
             <NumberField id="amount" value={amount} onChange={setAmount} className="text-xl font-semibold" />
@@ -103,7 +103,7 @@ export function AmountSheet({ food, meal: initialMeal, date, existing, onSave, o
                 </button>
               </span>
             ))}
-            {!newPortion && (
+            {!newPortion && unit !== 'Stk' && (
               <button type="button" className={`${btnLink} text-sm py-1.5`} onClick={() => setNewPortion({ name: '', amount })}>
                 + Eigene Portion
               </button>
