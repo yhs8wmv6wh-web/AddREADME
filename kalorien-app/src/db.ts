@@ -174,6 +174,23 @@ export async function saveTemplate(t: ActivityTemplate) {
   await db.put('templates', t)
 }
 
+/** Rechnet alle automatisch angelegten Einträge einer Vorlage neu (nach Änderung). */
+export async function recalcTemplateEntries(t: ActivityTemplate, weightKg: number) {
+  const db = await getDB()
+  const all = await db.getAll('activities')
+  const kcal = templateKcal(t, weightKg)
+  for (const a of all) {
+    if (a.templateId !== t.id) continue
+    await db.put('activities', {
+      ...a,
+      name: a.slot ? `${t.name} (${a.slot})` : t.name,
+      kcal,
+      minutes: t.kind === 'cycling' ? t.minutes : undefined,
+      distanceKm: t.kind === 'cycling' ? t.distanceKm : undefined,
+    })
+  }
+}
+
 export async function deleteTemplate(id: string) {
   const db = await getDB()
   await db.delete('templates', id)
@@ -207,6 +224,7 @@ export async function materializeTemplates(weightKg: number): Promise<number> {
               name: slot ? `${t.name} (${slot})` : t.name,
               kcal: templateKcal(t, weightKg),
               minutes: t.kind === 'cycling' ? t.minutes : undefined,
+              distanceKm: t.kind === 'cycling' ? t.distanceKm : undefined,
               templateId: t.id,
               slot,
               createdAt: Date.now(),

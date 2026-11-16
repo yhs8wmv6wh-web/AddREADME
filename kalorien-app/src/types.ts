@@ -11,6 +11,7 @@ export interface Portion {
 export interface Food {
   id: string
   name: string
+  nameEn?: string // Originalname aus der USDA-Datenbank
   brand?: string
   source: FoodSource
   sourceId?: string // FDC-ID bzw. Barcode
@@ -72,6 +73,7 @@ export interface ActivityEntry {
   name: string
   kcal: number
   minutes?: number
+  distanceKm?: number
   templateId?: string
   slot?: string
   createdAt: number
@@ -86,7 +88,8 @@ export interface ActivityTemplate {
   weekdays: number[] // 1 = Montag … 7 = Sonntag
   slots: string[] // z. B. ["morgens", "nachmittags"]; pro Slot ein Eintrag
   minutes?: number // nur Fahrrad
-  met?: number // nur Fahrrad
+  distanceKm?: number // nur Fahrrad
+  met?: number // veraltet: Tempo-Auswahl vor Einführung der Strecke
   kcal?: number // nur feste Aktivität
   startDate: string
   active: boolean

@@ -90,6 +90,38 @@ export async function translateQuery(apiKey: string, german: string): Promise<st
   return r.query.trim() || german
 }
 
+const NAMES_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: { names: { type: 'array', items: { type: 'string' } } },
+  required: ['names'],
+}
+
+/** Übersetzt USDA-Bezeichnungen ins Deutsche, gleiche Reihenfolge wie die Eingabe. */
+export async function translateNames(apiKey: string, english: string[]): Promise<string[]> {
+  if (english.length === 0) return []
+  const r = await askJson<{ names: string[] }>(
+    apiKey,
+    [
+      {
+        type: 'text',
+        text:
+          'Übersetze diese Lebensmittel-Bezeichnungen aus der USDA-Datenbank ins Deutsche. Kurz und natürlich, ' +
+          'wichtige Angaben behalten (roh/gekocht, mit/ohne Haut, Fettstufe), z. B. "Wine, table, red" -> ' +
+          '"Rotwein", "Chicken, broilers or fryers, breast, meat only, raw" -> "Hähnchenbrust, ohne Haut, roh". ' +
+          'Gib genau ' +
+          english.length +
+          ' Namen in derselben Reihenfolge zurück.\n\n' +
+          english.map((n, i) => `${i + 1}. ${n}`).join('\n'),
+      },
+    ],
+    NAMES_SCHEMA,
+    'low',
+    4000,
+  )
+  return english.map((n, i) => r.names[i]?.trim() || n)
+}
+
 // ---------- Nährwerttabelle vom Foto ----------
 
 const NUTRIENT_PROPS = {
@@ -193,7 +225,8 @@ const RECIPE_SCHEMA = {
   required: ['title', 'servingsText', 'servingsMin', 'servingsMax', 'ingredients'],
 }
 
-const RECIPE_PROMPT = `Das PDF ist ein Rezept (meist von NYT Cooking, also mit US-Mengenangaben).
+const RECIPE_PROMPT = `Der Inhalt oben ist ein Rezept (PDF, Text oder Screenshots, meist von NYT Cooking, also mit US-Mengenangaben).
+Ignoriere alles, was nicht zum Rezept gehört (Navigation, Werbung, Kommentare).
 Extrahiere alle Zutaten. Für jede Zutat:
 - "original": die Zeile genau wie im Rezept.
 - "nameDe": kurzer deutscher Name (z. B. "Olivenöl", "Zwiebel, roh").
@@ -203,16 +236,32 @@ Extrahiere alle Zutaten. Für jede Zutat:
 Optionale Zutaten und Garnituren mit aufnehmen. Zutaten, die nur zum Kochen und nicht zum Essen dienen (z. B. Frittieröl, Nudelwasser-Salz), mit realistischer aufgenommener Menge ansetzen.
 "servingsText": die Portionsangabe aus dem Rezept wörtlich (z. B. "4 to 6 servings"). "servingsMin"/"servingsMax": Zahlen daraus (bei einer einzigen Zahl beide gleich; wenn keine Angabe: 4 und 4).`
 
-export async function parseRecipePdf(apiKey: string, pdf: Blob): Promise<ParsedRecipe> {
+/** Was als Rezept übergeben werden kann: PDF, Bilder (Screenshots) oder Text. */
+export type RecipeSource = { pdf?: Blob; images?: Blob[]; text?: string }
+
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
+type ImageType = (typeof IMAGE_TYPES)[number]
+
+export async function parseRecipe(apiKey: string, src: RecipeSource): Promise<ParsedRecipe> {
+  const content: Anthropic.Beta.BetaContentBlockParam[] = []
+  if (src.pdf) {
+    content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: await toBase64(src.pdf) } })
+  }
+  for (const img of src.images ?? []) {
+    const media = (IMAGE_TYPES as readonly string[]).includes(img.type) ? (img.type as ImageType) : 'image/png'
+    content.push({ type: 'image', source: { type: 'base64', media_type: media, data: await toBase64(img) } })
+  }
+  if (src.text?.trim()) content.push({ type: 'text', text: `REZEPT:\n${src.text.trim()}` })
+  if (content.length === 0) throw new Error('Nichts zum Auslesen gefunden.')
+  content.push({ type: 'text', text: RECIPE_PROMPT })
+
   const r = await askJson<ParsedRecipe & { ingredients: (Omit<ParsedIngredient, 'estimate'> & { estimate: Record<string, number | null> })[] }>(
     apiKey,
-    [
-      { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: await toBase64(pdf) } },
-      { type: 'text', text: RECIPE_PROMPT },
-    ],
+    content,
     RECIPE_SCHEMA,
     'medium',
     32000,
   )
+  if (r.ingredients.length === 0) throw new Error('Claude hat darin keine Zutaten gefunden. Ist das wirklich das Rezept?')
   return { ...r, ingredients: r.ingredients.map((i) => ({ ...i, estimate: cleanNutrients(i.estimate) })) }
 }
