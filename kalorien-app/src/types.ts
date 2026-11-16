@@ -1,6 +1,7 @@
 import type { Nutrients } from './lib/nutrients'
 
-export type Unit = 'g' | 'ml'
+// 'Stk': Werte in per100 gelten dann für EIN Stück (z. B. eine Praline).
+export type Unit = 'g' | 'ml' | 'Stk'
 export type FoodSource = 'off' | 'usda' | 'custom' | 'label'
 
 export interface Portion {

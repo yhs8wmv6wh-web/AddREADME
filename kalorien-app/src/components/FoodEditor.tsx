@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import type { Food, Unit } from '../types'
-import { NUTRIENT_KEYS, NUTRIENT_META, type Nutrients } from '../lib/nutrients'
+import { NUTRIENT_KEYS, NUTRIENT_META, perLabel, type Nutrients } from '../lib/nutrients'
 import { readNutritionLabel } from '../lib/claude'
 import { ErrorText, NumberField, Sheet, btnPrimary, btnSecondary, input, label } from './ui'
 
@@ -94,21 +94,21 @@ export function FoodEditor({ initial, barcode, apiKey, onSave, onDelete, onClose
         <div className="flex flex-col gap-1.5">
           <span className={label}>Werte gelten pro</span>
           <div className="flex gap-2">
-            {(['g', 'ml'] as Unit[]).map((u) => (
+            {(['g', 'ml', 'Stk'] as Unit[]).map((u) => (
               <button
                 key={u}
                 type="button"
                 onClick={() => setUnit(u)}
                 className={`flex-1 rounded-lg border px-3 py-2 ${unit === u ? 'border-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 font-semibold' : 'border-neutral-300 dark:border-neutral-700'}`}
               >
-                100 {u}
+                {u === 'Stk' ? '1 Stück' : `100 ${u}`}
               </button>
             ))}
           </div>
         </div>
 
         <div className="flex flex-col gap-2">
-          <span className={label}>Nährwerte pro 100 {unit} (leer = unbekannt)</span>
+          <span className={label}>Nährwerte {perLabel(unit)} (leer = unbekannt)</span>
           {NUTRIENT_KEYS.map((k) => (
             <div key={k} className="flex items-center gap-3">
               <label htmlFor={`n-${k}`} className="w-36 shrink-0 text-sm">
