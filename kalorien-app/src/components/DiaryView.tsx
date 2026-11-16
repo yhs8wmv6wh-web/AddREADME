@@ -4,11 +4,12 @@ import { MEALS } from '../types'
 import { deleteActivity, deleteEntry, getActivities, getClosedDays, getDB, getEntries, materializeTemplates, saveActivity, saveEntry, saveFood, setDayClosed } from '../db'
 import { addDays, relativeLabel, today } from '../lib/date'
 import { KCAL_PER_KG, type Targets } from '../lib/calc'
-import { MICRO_KEYS, NUTRIENT_META, fmt, fmtNum, sum, type NutrientKey } from '../lib/nutrients'
+import { MICRO_KEYS, NUTRIENT_META, fmt, fmtNum, pieceLabel, sum, type NutrientKey } from '../lib/nutrients'
 import { AddFoodSheet } from './AddFoodSheet'
 import { AmountSheet } from './AmountSheet'
 import { ActivitySheet } from './ActivitySheet'
 import { FoodEditor } from './FoodEditor'
+import { SupplementsSheet } from './SupplementsSheet'
 import { ProgressBar, btnLink, card, label } from './ui'
 
 interface Props {
@@ -18,12 +19,17 @@ interface Props {
   refreshKey: number
 }
 
+// Tolerierbare Höchstmengen der EFSA für Erwachsene.
+const UL_VITD = 100 // µg/Tag, alle Quellen
+const UL_MG_SUPPLEMENT = 250 // mg/Tag, nur Supplements
+
 type Sub =
   | { kind: 'none' }
   | { kind: 'add'; meal: Meal }
   | { kind: 'edit'; entry: FoodEntry; food: Food }
   | { kind: 'editFood'; entry: FoodEntry; food: Food }
   | { kind: 'activity'; existing?: ActivityEntry }
+  | { kind: 'supplements' }
 
 export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
   const [date, setDate] = useState(today())
@@ -33,9 +39,10 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
   const [closed, setClosed] = useState(false)
 
   const reload = useCallback(async () => {
-    setEntries(await getEntries(date))
-    // Feste Aktivitäten auch für den angezeigten Tag eintragen (auch Zukunft).
+    // Feste Aktivitäten und Supplements für den angezeigten Tag eintragen
+    // (auch Zukunft) – vor dem Laden, damit sie sofort sichtbar sind.
     await materializeTemplates(weightKg, { from: date, to: date })
+    setEntries(await getEntries(date))
     setActivities(await getActivities(date))
     setClosed((await getClosedDays()).includes(date))
     // refreshKey: neu laden, wenn App-weit Daten geändert wurden (Import, Vorlagen).
@@ -45,6 +52,8 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
   }, [reload])
 
   const eaten = sum(entries.map((e) => e.nutrients))
+  const supplements = entries.filter((e) => e.meal === 'supplements')
+  const supplementMg = supplements.reduce((n, e) => n + (e.nutrients.magnesium ?? 0), 0)
   const burned = activities.reduce((s, a) => s + a.kcal, 0)
   const budget = targets.kcal + (settings.addExerciseToBudget ? burned : 0)
   const remaining = Math.round(budget - (eaten.kcal ?? 0))
@@ -95,6 +104,8 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
         onClose={() => setSub({ kind: 'edit', entry: sub.entry, food: sub.food })}
       />
     )
+  if (sub.kind === 'supplements')
+    return <SupplementsSheet apiKey={settings.anthropicKey} onClose={doneAndReload} />
   if (sub.kind === 'activity')
     return (
       <ActivitySheet
@@ -120,7 +131,8 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
     { key: 'fat', target: targets.fat },
     { key: 'fiber', target: 30 },
   ]
-  const missingCount = (k: NutrientKey) => entries.filter((e) => e.nutrients[k] === undefined).length
+  // Supplements enthalten bewusst nur einzelne Stoffe – zählen nicht als „ohne Angabe".
+  const missingCount = (k: NutrientKey) => entries.filter((e) => e.meal !== 'supplements' && e.nutrients[k] === undefined).length
 
   return (
     <div className="flex flex-col gap-4">
@@ -187,9 +199,9 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
             const missing = missingCount(k)
             return (
               <div key={k} className="flex flex-col gap-1">
-                <div className="flex justify-between gap-2 text-sm">
-                  <span className="min-w-0 truncate">{NUTRIENT_META[k].label}</span>
-                  <span className="shrink-0 whitespace-nowrap tabular-nums text-neutral-500">
+                <div className="flex flex-wrap items-baseline justify-between gap-x-2 text-sm">
+                  <span>{NUTRIENT_META[k].label}</span>
+                  <span className="shrink-0 whitespace-nowrap text-xs tabular-nums text-neutral-500">
                     {fmt(eaten[k] ?? 0, k)}/{fmtNum(target, 1)} {NUTRIENT_META[k].unit}
                   </span>
                 </div>
@@ -199,6 +211,16 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
             )
           })}
         </div>
+        {(eaten.vitD ?? 0) > UL_VITD && (
+          <p className="mt-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
+            Vitamin D: {fmt(eaten.vitD, 'vitD')} µg – über der EFSA-Höchstmenge von {UL_VITD} µg pro Tag.
+          </p>
+        )}
+        {supplementMg > UL_MG_SUPPLEMENT && (
+          <p className="mt-3 rounded-lg bg-rose-50 dark:bg-rose-950/40 px-3 py-2 text-sm text-rose-700 dark:text-rose-300">
+            Magnesium aus Supplements: {fmtNum(supplementMg)} mg – über der EFSA-Höchstmenge von {UL_MG_SUPPLEMENT} mg pro Tag (gilt nur für Supplements, nicht für Essen).
+          </p>
+        )}
         <div className="mt-3 flex justify-between text-sm">
           <span>Salz</span>
           <span className="tabular-nums text-neutral-500">{fmt(eaten.salt ?? 0, 'salt')} g (max. 6 g)</span>
@@ -222,7 +244,7 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
                       <span className="min-w-0">
                         <span className="block truncate">{e.name}</span>
                         <span className="block text-xs text-neutral-500">
-                          {fmtNum(e.amount, 1)} {e.unit === 'Portion' ? (e.amount === 1 ? 'Portion' : 'Portionen') : e.unit === 'Stk' ? 'Stück' : e.unit}
+                          {fmtNum(e.amount, 1)} {e.unit === 'Portion' ? (e.amount === 1 ? 'Portion' : 'Portionen') : e.unit === 'Stk' ? pieceLabel(e.pieceName, e.amount) : e.unit}
                         </span>
                       </span>
                       <span className="shrink-0 tabular-nums text-sm">{fmt(e.nutrients.kcal, 'kcal')}</span>
@@ -248,6 +270,46 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
           </section>
         )
       })}
+
+      <section className={card}>
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <h3 className="font-semibold">Supplements</h3>
+          <span className="text-xs text-neutral-500">automatisch</span>
+        </div>
+        {supplements.length > 0 && (
+          <ul className="divide-y divide-neutral-200 dark:divide-neutral-800 border-t border-neutral-200 dark:border-neutral-800">
+            {supplements.map((e) => (
+              <li key={e.id} className="flex items-center gap-2 pl-4">
+                <button type="button" className="flex min-w-0 flex-1 items-center justify-between gap-3 py-2.5 text-left" onClick={() => openEntry(e)}>
+                  <span className="min-w-0">
+                    <span className="block truncate">{e.name}</span>
+                    <span className="block text-xs text-neutral-500">
+                      {fmtNum(e.amount, 1)} {pieceLabel(e.pieceName, e.amount)}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right text-xs tabular-nums text-neutral-500">
+                    {MICRO_KEYS.filter((k) => e.nutrients[k]).map((k) => `${NUTRIENT_META[k].label} ${fmt(e.nutrients[k], k)} ${NUTRIENT_META[k].unit}`).join(' · ')}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`${e.name} löschen`}
+                  className="px-3 py-2.5 text-neutral-400"
+                  onClick={async () => {
+                    await deleteEntry(e.id)
+                    await reload()
+                  }}
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <button type="button" className={`${btnLink} block w-full border-t border-neutral-200 dark:border-neutral-800 px-4 py-2.5 text-left text-sm`} onClick={() => setSub({ kind: 'supplements' })}>
+          {supplements.length ? 'Supplements verwalten' : '+ Supplement hinzufügen'}
+        </button>
+      </section>
 
       <section className={card}>
         <div className="flex items-center justify-between px-4 pt-3 pb-2">

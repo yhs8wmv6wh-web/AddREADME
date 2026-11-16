@@ -146,7 +146,7 @@ export function FoodEditor({ initial, barcode, apiKey, onSave, onDelete, onClose
 }
 
 /** Verkleinert Handyfotos (oft > 5 MB) auf max. 1600 px – spart Upload und Kosten. */
-async function shrinkImage(file: File): Promise<Blob> {
+export async function shrinkImage(file: File): Promise<Blob> {
   try {
     const bmp = await createImageBitmap(file)
     const max = 1600
