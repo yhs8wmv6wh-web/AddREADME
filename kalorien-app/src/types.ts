@@ -132,3 +132,13 @@ export interface SupplementPlan {
   startDate: string
   active: boolean
 }
+
+/** Gemerktes Training: ein Tipp trägt es ein. */
+export interface ActivityPreset {
+  id: string
+  name: string
+  kind: 'kcal' | 'cycling'
+  kcal?: number
+  distanceKm?: number
+  minutes?: number
+}
