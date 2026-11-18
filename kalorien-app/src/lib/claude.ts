@@ -280,6 +280,15 @@ const RECIPE_SCHEMA = {
   required: ['title', 'servingsText', 'servingsMin', 'servingsMax', 'ingredients'],
 }
 
+const SPOKEN_PROMPT = `Die BESCHREIBUNG oben ist frei gesprochen (diktiert, evtl. mit Erkennungsfehlern): Jemand erzählt auf Deutsch, was er gekocht hat und welche Zutaten er verwendet hat. Mache daraus ein Rezept.
+- Mengen können ungenau sein ("eine Packung Feta", "ein Schuss Öl", "zwei Hände Spinat"): setze realistische Gramm-Mengen für deutsche Packungsgrößen und Haushaltsmengen an.
+- Offensichtliche Diktierfehler sinnvoll korrigieren.
+- "title": kurzer passender deutscher Name für das Gericht.
+- Portionen: wenn genannt, übernehmen; sonst aus den Mengen schätzen (eine Portion ≈ ein normales Hauptgericht für einen Erwachsenen). "servingsText": "geschätzt" oder die genannte Angabe.
+- "original": die jeweilige Angabe aus der Beschreibung.
+Danach gelten diese Regeln:
+`
+
 const RECIPE_PROMPT = `Der Inhalt oben ist ein Rezept (PDF, Text oder Screenshots, meist von NYT Cooking, also mit US-Mengenangaben).
 Ignoriere alles, was nicht zum Rezept gehört (Navigation, Werbung, Kommentare).
 Extrahiere alle Zutaten. Für jede Zutat:
@@ -292,7 +301,7 @@ Optionale Zutaten und Garnituren mit aufnehmen. Zutaten, die nur zum Kochen und 
 "servingsText": die Portionsangabe aus dem Rezept wörtlich (z. B. "4 to 6 servings"). "servingsMin"/"servingsMax": Zahlen daraus (bei einer einzigen Zahl beide gleich; wenn keine Angabe: 4 und 4).`
 
 /** Was als Rezept übergeben werden kann: PDF, Bilder (Screenshots) oder Text. */
-export type RecipeSource = { pdf?: Blob; images?: Blob[]; text?: string }
+export type RecipeSource = { pdf?: Blob; images?: Blob[]; text?: string; spoken?: boolean }
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'] as const
 type ImageType = (typeof IMAGE_TYPES)[number]
@@ -306,9 +315,9 @@ export async function parseRecipe(apiKey: string, src: RecipeSource): Promise<Pa
     const media = (IMAGE_TYPES as readonly string[]).includes(img.type) ? (img.type as ImageType) : 'image/png'
     content.push({ type: 'image', source: { type: 'base64', media_type: media, data: await toBase64(img) } })
   }
-  if (src.text?.trim()) content.push({ type: 'text', text: `REZEPT:\n${src.text.trim()}` })
+  if (src.text?.trim()) content.push({ type: 'text', text: `${src.spoken ? 'BESCHREIBUNG' : 'REZEPT'}:\n${src.text.trim()}` })
   if (content.length === 0) throw new Error('Nichts zum Auslesen gefunden.')
-  content.push({ type: 'text', text: RECIPE_PROMPT })
+  content.push({ type: 'text', text: src.spoken ? SPOKEN_PROMPT + RECIPE_PROMPT : RECIPE_PROMPT })
 
   const r = await askJson<ParsedRecipe & { ingredients: (Omit<ParsedIngredient, 'estimate'> & { estimate: Record<string, number | null> })[] }>(
     apiKey,

@@ -3,6 +3,7 @@ import type { Food, Recipe, RecipeIngredient, Settings } from '../types'
 import { deleteRecipe, getRecipes, saveRecipe } from '../db'
 import { parseRecipe, type RecipeSource } from '../lib/claude'
 import { RecipePaste } from './RecipePaste'
+import { RecipeDescribe } from './RecipeDescribe'
 import { searchUsda } from '../lib/usda'
 import { MICRO_KEYS, NUTRIENT_META, fmt, fmtNum, scale, type NutrientKey } from '../lib/nutrients'
 import { recipePerServing, recipeTotal } from '../lib/recipe'
@@ -86,6 +87,7 @@ export function RecipesView({ settings, refreshKey }: { settings: Settings; refr
 
   return (
     <div className="flex flex-col gap-4">
+      <RecipeDescribe busy={busy} onImport={(text) => importRecipe({ text, spoken: true }, 'Selbst gekocht')} />
       <RecipePaste busy={busy} onImport={(src) => importRecipe(src, 'Rezept')} />
       {busy && <p className="text-sm text-neutral-500">Claude liest das Rezept … (ca. 30–60 Sekunden)</p>}
       <ErrorText>{error}</ErrorText>
