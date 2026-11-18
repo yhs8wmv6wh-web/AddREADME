@@ -37,12 +37,14 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
   const [activities, setActivities] = useState<ActivityEntry[]>([])
   const [sub, setSub] = useState<Sub>({ kind: 'none' })
   const [closed, setClosed] = useState(false)
+  const [yesterday, setYesterday] = useState<FoodEntry[]>([])
 
   const reload = useCallback(async () => {
     // Feste Aktivitäten und Supplements für den angezeigten Tag eintragen
     // (auch Zukunft) – vor dem Laden, damit sie sofort sichtbar sind.
     await materializeTemplates(weightKg, { from: date, to: date })
     setEntries(await getEntries(date))
+    setYesterday((await getEntries(addDays(date, -1))).filter((e) => e.meal !== 'supplements'))
     setActivities(await getActivities(date))
     setClosed((await getClosedDays()).includes(date))
     // refreshKey: neu laden, wenn App-weit Daten geändert wurden (Import, Vorlagen).
@@ -57,6 +59,22 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
   const burned = activities.reduce((s, a) => s + a.kcal, 0)
   const budget = targets.kcal + (settings.addExerciseToBudget ? burned : 0)
   const remaining = Math.round(budget - (eaten.kcal ?? 0))
+
+  // Nur Einträge von gestern, die heute in dieser Mahlzeit noch fehlen (verhindert Doppel-Übernahme).
+  const yesterdayOf = (meal: Meal) => {
+    const present = new Set(entries.filter((e) => e.meal === meal).map((e) => `${e.refId}|${e.amount}`))
+    return yesterday.filter((e) => e.meal === meal && !present.has(`${e.refId}|${e.amount}`))
+  }
+
+  /** Übernimmt alle Einträge dieser Mahlzeit vom Vortag. */
+  async function copyFromYesterday(meal: Meal) {
+    const now = Date.now()
+    const list = yesterdayOf(meal)
+    for (let i = 0; i < list.length; i++) {
+      await saveEntry({ ...list[i], id: crypto.randomUUID(), date, createdAt: now + i })
+    }
+    await reload()
+  }
 
   async function openEntry(entry: FoodEntry) {
     if (entry.kind !== 'food') return
@@ -264,9 +282,16 @@ export function DiaryView({ settings, targets, weightKg, refreshKey }: Props) {
                 ))}
               </ul>
             )}
-            <button type="button" className={`${btnLink} block w-full border-t border-neutral-200 dark:border-neutral-800 px-4 py-2.5 text-left text-sm`} onClick={() => setSub({ kind: 'add', meal: m.id })}>
-              + Hinzufügen
-            </button>
+            <div className="flex border-t border-neutral-200 dark:border-neutral-800">
+              <button type="button" className={`${btnLink} flex-1 px-4 py-2.5 text-left text-sm`} onClick={() => setSub({ kind: 'add', meal: m.id })}>
+                + Hinzufügen
+              </button>
+              {yesterdayOf(m.id).length > 0 && (
+                <button type="button" className={`${btnLink} px-4 py-2.5 text-right text-sm`} onClick={() => copyFromYesterday(m.id)}>
+                  Wie gestern ({fmtNum(sum(yesterdayOf(m.id).map((e) => e.nutrients)).kcal ?? 0)} kcal)
+                </button>
+              )}
+            </div>
           </section>
         )
       })}
