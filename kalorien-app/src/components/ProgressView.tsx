@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import type { BodyLog, Settings } from '../types'
-import { getActivitiesRange, getEntriesRange, saveBodyLog } from '../db'
+import { saveBodyLog } from '../db'
 import { addDays, formatShort, fromISO, today } from '../lib/date'
-import { KCAL_PER_KG, type Targets } from '../lib/calc'
+import type { Targets } from '../lib/calc'
 import { fmtNum } from '../lib/nutrients'
 import { NumberField, btnPrimary, card, input, label } from './ui'
+import { WeekSummary } from './WeekSummary'
 
 interface Props {
   settings: Settings
@@ -19,7 +20,6 @@ export function ProgressView({ settings, logs, targets, weightKg, onChanged }: P
   const existing = logs.find((l) => l.date === date)
   const [weight, setWeight] = useState<number | undefined>(existing?.weightKg)
   const [fat, setFat] = useState<number | undefined>(existing?.bodyFatPct)
-  const [week, setWeek] = useState<{ days: number; avgIn: number; avgOut: number } | null>(null)
 
   useEffect(() => {
     const e = logs.find((l) => l.date === date)
@@ -27,19 +27,6 @@ export function ProgressView({ settings, logs, targets, weightKg, onChanged }: P
     setFat(e?.bodyFatPct)
   }, [date, logs])
 
-  useEffect(() => {
-    // Letzte 7 abgeschlossene Tage (ohne heute), nur Tage mit Einträgen zählen.
-    const to = addDays(today(), -1)
-    const from = addDays(today(), -7)
-    Promise.all([getEntriesRange(from, to), getActivitiesRange(from, to)]).then(([entries, acts]) => {
-      const byDay = new Map<string, number>()
-      for (const e of entries) byDay.set(e.date, (byDay.get(e.date) ?? 0) + (e.nutrients.kcal ?? 0))
-      const days = byDay.size
-      const totalIn = [...byDay.values()].reduce((a, b) => a + b, 0)
-      const totalOut = acts.filter((a) => byDay.has(a.date)).reduce((s, a) => s + a.kcal, 0)
-      setWeek(days ? { days, avgIn: totalIn / days, avgOut: totalOut / days } : null)
-    })
-  }, [logs])
 
   async function save() {
     await saveBodyLog({ date, weightKg: weight, bodyFatPct: fat })
@@ -67,6 +54,8 @@ export function ProgressView({ settings, logs, targets, weightKg, onChanged }: P
         </p>
       )}
 
+      <WeekSummary tdee={targets.tdee} weightKg={weightKg} />
+
       <section className={`${card} flex flex-col gap-3 p-4`}>
         <h3 className={label}>Messung eintragen</h3>
         <input type="date" className={input} value={date} max={today()} onChange={(e) => e.target.value && setDate(e.target.value)} />
@@ -92,24 +81,6 @@ export function ProgressView({ settings, logs, targets, weightKg, onChanged }: P
       <Chart title="Gewicht" unit="kg" points={weights} goal={settings.goalWeightKg} />
       <Chart title="Körperfett" unit="%" points={fats} />
 
-      <section className={`${card} p-4`}>
-        <h3 className={`${label} mb-2`}>Letzte 7 Tage</h3>
-        {week ? (
-          <dl className="flex flex-col gap-1 text-sm tabular-nums">
-            <Row k="Ø gegessen" v={`${fmtNum(week.avgIn)} kcal`} />
-            <Row k="Ø Training" v={`${fmtNum(week.avgOut)} kcal`} />
-            <Row k="Ø Tagesziel (ohne Training)" v={`${fmtNum(targets.kcal)} kcal`} />
-            <Row
-              k="Ø Defizit zum Gesamtumsatz"
-              v={`${fmtNum(targets.tdee + week.avgOut - week.avgIn)} kcal`}
-            />
-            <Row k="Entspricht pro Woche" v={`${fmtNum(((targets.tdee + week.avgOut - week.avgIn) * 7) / KCAL_PER_KG, 2)} kg`} />
-            <p className="mt-1 text-xs text-neutral-500">Basis: {week.days} Tage mit Einträgen. Rechnerischer Wert; das echte Gewicht schwankt durch Wasser.</p>
-          </dl>
-        ) : (
-          <p className="text-sm text-neutral-500">Noch keine Einträge in den letzten 7 Tagen.</p>
-        )}
-      </section>
 
       {logs.length > 0 && (
         <section className={card}>
@@ -140,15 +111,6 @@ function Stat({ title, value }: { title: string; value: string }) {
     <div className="px-2">
       <p className="text-xs text-neutral-500">{title}</p>
       <p className="font-semibold tabular-nums">{value}</p>
-    </div>
-  )
-}
-
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div className="flex justify-between gap-3">
-      <dt className="text-neutral-500">{k}</dt>
-      <dd>{v}</dd>
     </div>
   )
 }

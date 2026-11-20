@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { ActivityEntry, ActivityTemplate, BodyLog, Food, FoodEntry, Recipe, Settings, SupplementPlan } from './types'
+import type { ActivityEntry, ActivityPreset, ActivityTemplate, BodyLog, Food, FoodEntry, Recipe, Settings, SupplementPlan } from './types'
 import { addDays, today, weekday } from './lib/date'
 import { templateKcal } from './lib/calc'
 import { forAmount } from './lib/nutrients'
@@ -251,6 +251,24 @@ export async function materializeTemplates(weightKg: number, range?: { from: str
   return created
 }
 
+// ---------- Gemerkte Trainings ----------
+
+export async function getActivityPresets(): Promise<ActivityPreset[]> {
+  const db = await getDB()
+  return ((await db.get('kv', 'activityPresets')) as ActivityPreset[] | undefined) ?? []
+}
+
+export async function saveActivityPreset(p: ActivityPreset) {
+  const db = await getDB()
+  const list = (await getActivityPresets()).filter((x) => x.id !== p.id)
+  await db.put('kv', [...list, p], 'activityPresets')
+}
+
+export async function deleteActivityPreset(id: string) {
+  const db = await getDB()
+  await db.put('kv', (await getActivityPresets()).filter((x) => x.id !== id), 'activityPresets')
+}
+
 // ---------- Supplements ----------
 
 export async function getSupplements(): Promise<SupplementPlan[]> {
@@ -375,6 +393,7 @@ export async function exportAll(): Promise<string> {
   data.settings = { ...settings, anthropicKey: '', usdaKey: '' }
   data.closedDays = await getClosedDays()
   data.supplements = await getSupplements()
+  data.activityPresets = await getActivityPresets()
   return JSON.stringify(data)
 }
 
@@ -388,6 +407,10 @@ export async function importAll(json: string): Promise<void> {
     const tx = db.transaction(s, 'readwrite')
     for (const item of list) await tx.store.put(item)
     await tx.done
+  }
+  if (Array.isArray(data.activityPresets)) {
+    const ids = new Set((data.activityPresets as ActivityPreset[]).map((p) => p.id))
+    await db.put('kv', [...(await getActivityPresets()).filter((p) => !ids.has(p.id)), ...data.activityPresets], 'activityPresets')
   }
   if (Array.isArray(data.supplements)) {
     const ids = new Set((data.supplements as SupplementPlan[]).map((p) => p.id))
