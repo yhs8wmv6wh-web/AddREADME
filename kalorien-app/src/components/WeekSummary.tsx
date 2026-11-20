@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getActivitiesRange, getEntriesRange } from '../db'
+import { getActivitiesRange, getClosedDays, getEntriesRange } from '../db'
 import { addDays, formatShort, today, weekday, WEEKDAY_SHORT } from '../lib/date'
 import { KCAL_PER_KG } from '../lib/calc'
 import { fmtNum } from '../lib/nutrients'
@@ -18,26 +18,32 @@ interface Day {
   balance: number // > 0 = Defizit
 }
 
-/** Montag der Woche, in der `date` liegt. */
-function mondayOf(date: string): string {
-  return addDays(date, 1 - weekday(date))
-}
 
 /**
- * Wochenbilanz: Ø Defizit der eingetragenen Tage dieser Woche und was
+ * Bilanz der letzten 7 Tage: Ø Defizit der eingetragenen Tage und was
  * daraus in 4, 6 und 12 Wochen würde. Tage ohne Essen zählen nicht
  * (vergessen ≠ gefastet); Supplements allein machen keinen Tag „eingetragen".
  */
 export function WeekSummary({ tdee, weightKg }: Props) {
-  const [monday, setMonday] = useState(() => mondayOf(today()))
+  // Ende des Zeitraums: heute, wenn der Tag abgeschlossen ist, sonst gestern
+  // (ein halber Tag würde das Defizit schönrechnen). offset: Wochen zurück.
+  const [lastDay, setLastDay] = useState<string | null>(null)
+  const [offset, setOffset] = useState(0)
   const [days, setDays] = useState<Day[]>([])
 
   useEffect(() => {
-    const sunday = addDays(monday, 6)
-    Promise.all([getEntriesRange(monday, sunday), getActivitiesRange(monday, sunday)]).then(([entries, acts]) => {
+    getClosedDays().then((closed) => setLastDay(closed.includes(today()) ? today() : addDays(today(), -1)))
+  }, [])
+
+  const end = lastDay ? addDays(lastDay, -7 * offset) : null
+  const start = end ? addDays(end, -6) : null
+
+  useEffect(() => {
+    if (!start || !end) return
+    Promise.all([getEntriesRange(start, end), getActivitiesRange(start, end)]).then(([entries, acts]) => {
       const list: Day[] = []
       for (let i = 0; i < 7; i++) {
-        const d = addDays(monday, i)
+        const d = addDays(start, i)
         const food = entries.filter((e) => e.date === d && e.meal !== 'supplements')
         const eaten = entries.filter((e) => e.date === d).reduce((n, e) => n + (e.nutrients.kcal ?? 0), 0)
         const burned = acts.filter((a) => a.date === d).reduce((n, a) => n + a.kcal, 0)
@@ -46,30 +52,35 @@ export function WeekSummary({ tdee, weightKg }: Props) {
       }
       setDays(list)
     })
-  }, [monday, tdee])
+  }, [start, end, tdee])
 
   const tracked = days.filter((d) => d.tracked)
   const avg = tracked.length ? tracked.reduce((n, d) => n + d.balance, 0) / tracked.length : 0
   const perWeekKg = (avg * 7) / KCAL_PER_KG
   const losing = avg > 0
-  const isCurrent = monday === mondayOf(today())
+  const isCurrent = offset === 0
   const maxAbs = Math.max(1, ...tracked.map((d) => Math.abs(d.balance)))
 
   return (
     <section className={`${card} flex flex-col gap-3 p-4`}>
       <div className="flex items-center justify-between">
-        <button type="button" aria-label="Vorherige Woche" className="px-2 text-xl text-neutral-500" onClick={() => setMonday(addDays(monday, -7))}>
+        <button type="button" aria-label="Sieben Tage zurück" className="px-2 text-xl text-neutral-500" onClick={() => setOffset(offset + 1)}>
           ‹
         </button>
         <h3 className="text-center font-semibold">
-          {isCurrent ? 'Diese Woche' : `Woche ${formatShort(monday)}–${formatShort(addDays(monday, 6))}`}
+          {isCurrent ? 'Letzte 7 Tage' : '7 Tage'}
+          {start && end && (
+            <span className="block text-xs font-normal text-neutral-500">
+              {formatShort(start)}–{formatShort(end)}
+            </span>
+          )}
         </h3>
         <button
           type="button"
-          aria-label="Nächste Woche"
+          aria-label="Sieben Tage vor"
           className="px-2 text-xl text-neutral-500 disabled:opacity-30"
           disabled={isCurrent}
-          onClick={() => setMonday(addDays(monday, 7))}
+          onClick={() => setOffset(offset - 1)}
         >
           ›
         </button>
@@ -103,7 +114,7 @@ export function WeekSummary({ tdee, weightKg }: Props) {
       </p>
 
       {tracked.length === 0 ? (
-        <p className="text-sm text-neutral-500">In dieser Woche ist noch kein Essen eingetragen.</p>
+        <p className="text-sm text-neutral-500">In diesen 7 Tagen ist kein Essen eingetragen.</p>
       ) : (
         <>
           <p className="text-sm">
@@ -113,7 +124,7 @@ export function WeekSummary({ tdee, weightKg }: Props) {
               {fmtNum(Math.abs(perWeekKg), 2)} kg pro Woche
             </span>
           </p>
-          <h4 className={label}>Wenn jede Woche so läuft wie diese …</h4>
+          <h4 className={label}>Wenn jede Woche so läuft wie diese 7 Tage …</h4>
           <dl className="grid grid-cols-3 gap-2 text-center">
             {[4, 6, 12].map((w) => {
               const change = -perWeekKg * w
@@ -131,13 +142,14 @@ export function WeekSummary({ tdee, weightKg }: Props) {
           </dl>
           <p className="text-xs text-neutral-500">
             Ausgehend von {fmtNum(weightKg, 1)} kg (letzte Messung) und {fmtNum(tdee)} kcal Gesamtumsatz ohne Sport. Tage ohne
-            eingetragenes Essen zählen nicht mit. Rechnerische Schätzung.
+            eingetragenes Essen zählen nicht mit.
+            {isCurrent && end !== today() ? ' Heute zählt mit, sobald du den Tag im Tagebuch abschließt.' : ''} Rechnerische Schätzung.
           </p>
         </>
       )}
       {!isCurrent && (
-        <button type="button" className={`${btnLink} text-sm`} onClick={() => setMonday(mondayOf(today()))}>
-          Zur aktuellen Woche
+        <button type="button" className={`${btnLink} text-sm`} onClick={() => setOffset(0)}>
+          Zu den letzten 7 Tagen
         </button>
       )}
     </section>
