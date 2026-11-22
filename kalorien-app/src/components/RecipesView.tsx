@@ -6,13 +6,14 @@ import { RecipePaste } from './RecipePaste'
 import { RecipeDescribe } from './RecipeDescribe'
 import { searchUsda } from '../lib/usda'
 import { MICRO_KEYS, NUTRIENT_META, fmt, fmtNum, scale, type NutrientKey } from '../lib/nutrients'
-import { recipePerServing, recipeTotal } from '../lib/recipe'
+import { recipeMatches, recipePerServing, recipeTotal } from '../lib/recipe'
 import { ErrorText, NumberField, Sheet, btnLink, btnPrimary, btnSecondary, card, input, label } from './ui'
 
 export function RecipesView({ settings, refreshKey }: { settings: Settings; refreshKey: number }) {
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [editing, setEditing] = useState<Recipe | null>(null)
   const [busy, setBusy] = useState(false)
+  const [search, setSearch] = useState('')
   const [error, setError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -99,11 +100,20 @@ export function RecipesView({ settings, refreshKey }: { settings: Settings; refr
         Danach kannst du Zutaten abwählen, Mengen ändern und die Werte mit der USDA-Datenbank abgleichen.
       </p>
 
+      {recipes.length > 0 && (
+        <input
+          className={input}
+          type="search"
+          placeholder={`${recipes.length} Rezepte durchsuchen – Name oder Zutat`}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+      )}
       {recipes.length === 0 ? (
         <p className="text-sm text-neutral-500">Noch keine Rezepte.</p>
       ) : (
         <ul className={`${card} divide-y divide-neutral-200 dark:divide-neutral-800`}>
-          {recipes.map((r) => (
+          {recipes.filter((r) => recipeMatches(r, search)).map((r) => (
             <li key={r.id}>
               <button type="button" className="flex w-full items-center justify-between gap-3 px-3 py-3 text-left" onClick={() => setEditing(r)}>
                 <span className="min-w-0">
