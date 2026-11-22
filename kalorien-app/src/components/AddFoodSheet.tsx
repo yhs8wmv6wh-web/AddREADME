@@ -6,7 +6,7 @@ import { lookupBarcode, OffNotFound } from '../lib/off'
 import { searchUsda } from '../lib/usda'
 import { translateNames, translateQuery } from '../lib/claude'
 import { fmt, fmtNum } from '../lib/nutrients'
-import { recipePerServing } from '../lib/recipe'
+import { recipeMatches, recipePerServing } from '../lib/recipe'
 import { AmountSheet } from './AmountSheet'
 import { BarcodeScanner } from './BarcodeScanner'
 import { FoodEditor } from './FoodEditor'
@@ -50,10 +50,10 @@ export function AddFoodSheet({ date, meal, settings, onDone, onClose }: Props) {
     () => (q ? foods.filter((f) => `${f.name} ${f.brand ?? ''}`.toLocaleLowerCase('de').includes(q)) : foods).slice(0, q ? 30 : 15),
     [foods, q],
   )
-  const localRecipes = useMemo(
-    () => (q ? recipes.filter((r) => r.title.toLocaleLowerCase('de').includes(q)) : recipes).slice(0, q ? 10 : 5),
-    [recipes, q],
-  )
+  const localRecipes = useMemo(() => (q ? recipes.filter((r) => recipeMatches(r, q)).slice(0, 5) : []), [recipes, q])
+  const [tab, setTab] = useState<'foods' | 'recipes'>('foods')
+  const [recipeQuery, setRecipeQuery] = useState('')
+  const allRecipes = useMemo(() => recipes.filter((r) => recipeMatches(r, recipeQuery)), [recipes, recipeQuery])
 
   async function searchOnline() {
     const term = query.trim()
@@ -196,6 +196,46 @@ export function AddFoodSheet({ date, meal, settings, onDone, onClose }: Props) {
           </button>
         </div>
 
+        <div className="grid grid-cols-2 rounded-lg bg-neutral-200 dark:bg-neutral-800 p-1 text-sm" role="tablist">
+          {(
+            [
+              ['foods', 'Lebensmittel'],
+              ['recipes', `Rezepte (${recipes.length})`],
+            ] as const
+          ).map(([id, l]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`rounded-md py-2 ${tab === id ? 'bg-white dark:bg-neutral-950 font-semibold shadow-sm' : 'text-neutral-600 dark:text-neutral-400'}`}
+            >
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'recipes' ? (
+          <>
+            <input
+              className={input}
+              type="search"
+              placeholder="Rezept suchen – Name oder Zutat"
+              value={recipeQuery}
+              onChange={(e) => setRecipeQuery(e.target.value)}
+            />
+            {recipes.length === 0 ? (
+              <p className="text-sm text-neutral-500">Noch keine Rezepte. Lege sie im Tab „Rezepte“ an.</p>
+            ) : allRecipes.length === 0 ? (
+              <p className="text-sm text-neutral-500">Kein Rezept passt zu „{recipeQuery}“.</p>
+            ) : (
+              <RecipeList recipes={allRecipes} onPick={(recipe) => setSub({ kind: 'recipe', recipe })} />
+            )}
+          </>
+        ) : (
+          <>
+
         <form
           className="flex gap-2"
           onSubmit={(e) => {
@@ -240,17 +280,8 @@ export function AddFoodSheet({ date, meal, settings, onDone, onClose }: Props) {
 
         {localRecipes.length > 0 && (
           <section className="flex flex-col gap-2">
-            <h3 className={label}>Rezepte</h3>
-            <ul className={`${card} divide-y divide-neutral-200 dark:divide-neutral-800`}>
-              {localRecipes.map((r) => (
-                <li key={r.id}>
-                  <button type="button" className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left" onClick={() => setSub({ kind: 'recipe', recipe: r })}>
-                    <span className="min-w-0 truncate">{r.title}</span>
-                    <span className="shrink-0 text-sm tabular-nums text-neutral-500">{fmt(recipePerServing(r).kcal, 'kcal')} kcal/Portion</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <h3 className={label}>Passende Rezepte</h3>
+            <RecipeList recipes={localRecipes} onPick={(recipe) => setSub({ kind: 'recipe', recipe })} />
           </section>
         )}
 
@@ -264,8 +295,25 @@ export function AddFoodSheet({ date, meal, settings, onDone, onClose }: Props) {
             <FoodList foods={localFoods} onPick={(food) => setSub({ kind: 'amount', food })} />
           )}
         </section>
+          </>
+        )}
       </div>
     </Sheet>
+  )
+}
+
+function RecipeList({ recipes, onPick }: { recipes: Recipe[]; onPick: (r: Recipe) => void }) {
+  return (
+    <ul className={`${card} divide-y divide-neutral-200 dark:divide-neutral-800`}>
+      {recipes.map((r) => (
+        <li key={r.id}>
+          <button type="button" className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left" onClick={() => onPick(r)}>
+            <span className="min-w-0 truncate">{r.title}</span>
+            <span className="shrink-0 text-sm tabular-nums text-neutral-500">{fmt(recipePerServing(r).kcal, 'kcal')} kcal/Portion</span>
+          </button>
+        </li>
+      ))}
+    </ul>
   )
 }
 
